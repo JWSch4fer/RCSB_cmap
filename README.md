@@ -3,12 +3,13 @@ Create contact maps of RCSB structures
 - Convient tool for quickly creating contact maps of proteins of interest from [rcsb.org](https://www.rcsb.org/)
 - This can also generate contact maps of local .pdb files
 
-### Build a MiniConda environment
+### Build a MiniConda environment to run RCSB_cmap.py
+```
 bash conda_setup.sh
 bash test.sh
+```
 
 ## Usage
-python RCSB_cmap.py -pdb ####(.pdb) -chain # -pdb2 ####(.pdb) -chain2 # -oligomer
 - pdb "flag to specify protein pdbid (to run a local file pass the extension otherwise this will download the structure)"
 - chain "specify a chain of interest"
 - pdb2 "flag to specify protein pdbid (to run a local file pass the extension otherwise this will download the structure)"
