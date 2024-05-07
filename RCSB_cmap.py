@@ -107,34 +107,6 @@ class RCSB():
                     residue.detach_child(atom_id)
             for residue in detach_residue_list:
                 chain.detach_child(residue)
-
-        # else:
-        #     for chain in structure[0].get_chains():
-        #         detach_residue_list = set()
-        #         residues = Selection.unfold_entities(chain, 'R')
-        #         for residue in residues:
-        #             detach_id_list = []
-        #             #remove residues that don't have a CA
-        #             if 'CA' not in residue.child_dict.keys():
-        #                 detach_residue_list.add(residue._id)
-        #             # remove anything that is not protein
-        #             if residue.full_id[-1][0] != ' ':
-        #                 detach_residue_list.add(residue._id)
-        #             if residue.resname not in aa:
-        #                 detach_residue_list.add(residue._id)
-        #             if residue.resname in aa:
-        #                 aa_return.append(residue.resname)
-        #                 for atom in residue:
-        #                     # remove hydrogens
-        #                     if atom.element == 'H':
-        #                         detach_id_list.append(atom.id.strip())
-        #                     if atom.element != 'H':
-        #                         atom.serial_number = atom_number
-        #                         atom_number+=1
-        #             for atom_id in detach_id_list:
-        #                 residue.detach_child(atom_id)
-        #         for residue in detach_residue_list:
-        #             chain.detach_child(residue)
         return structure, [self.aa_translate[key] for key in aa_return]
 
 class CMAP():
