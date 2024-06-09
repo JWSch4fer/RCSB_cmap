@@ -135,6 +135,7 @@ class CMAP():
         detach_list = []
         for chain in self.structure[0].get_chains():
             residues = Selection.unfold_entities(chain, 'R')
+
             if len(residues) == 0:
                 detach_list.append(chain)
                 continue
@@ -160,51 +161,98 @@ class CMAP():
         """
         chain_ids = list(self.structure[0].child_dict.keys())
         if len(chain_ids) >= 2:
-            def check_aa():
-                chain_info = {}
+            translate_aa = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
+                            'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
+                            'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
+                            'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'}
+            def levenshtein_dist_w_memory(string_1, string_2):
+                """
+                Calculate the levenshtein distance between two strings and retain a 'memory' of the edits
+                to change string_2 into string_1
+
+                """
+
+                len_string_1 = len(string_1) + 1
+                len_string_2 = len(string_2) + 1
+                leven_mtx = [[(0,'') for _ in range(len_string_2)] for _ in range(len_string_1)]
+                # tuple is to keep track of the operations required to edit the string for it to match
+                # initialize leven_mtx
+                for col in range(len_string_1):
+                    leven_mtx[col][0] = (col, col*'D') #D for deletion
+                for row in range(len_string_2):
+                    leven_mtx[0][row] = (row, row*'I') #I for insertion
+
+                # calculate full levenshtein matrix
+                for col in range(1, len_string_1):
+                    for row in range(1, len_string_2):
+                        if string_1[col -1] == string_2[row -1]:
+                            cost = 0
+                            edit = "M" # M for match
+                        else:
+                            cost = 1
+                            edit = "S" # S for substitution
+                        #store values for each possibility
+                        D_cost, D_edit = leven_mtx[col -1][row]
+                        I_cost, I_edit = leven_mtx[col][row -1]
+                        S_cost, S_edit = leven_mtx[col -1][row -1]
+
+                        # determine the most cost effective move and store the values
+                        if D_cost < I_cost and D_cost + 1 < S_cost + cost:
+                            leven_mtx[col][row] = (D_cost + 1, D_edit + "D")
+                        elif I_cost < D_cost and I_cost + 1 < S_cost + cost:
+                            leven_mtx[col][row] = (I_cost +1, I_edit + "I")
+                        else:
+                            leven_mtx[col][row] = (S_cost +cost, S_edit + edit)
+
+                return leven_mtx[-1][-1]
+            def check_aa(domain):
+                chain_info = {}; aa_mtx = []
                 for chain in self.structure[0].get_chains():
                     residues = Selection.unfold_entities(chain, 'R')
-                    chain_info[chain.id] = [len(residues), [(idx, residue.resname) for idx, residue in enumerate(residues)]]
-                dict_return = {}
+                    chain_info[chain] = sorted([(int(res._id[1]), res.resname) for res in residues], key = lambda x: x[0])
                 for chain in chain_info:
-                    if chain_info[chain][0] < chain_info[max(chain_info, key=lambda x: x[0])][0]:
-                        align = [0,0]
-                        for i in range(1, abs(chain_info[chain][0] - chain_info[max(chain_info, key=lambda x: x[0])][0]) + 1):
-                            match = 0
-                            for idx in range(chain_info[chain][0]):
-                                if chain_info[chain][1][idx][1] == chain_info[max(chain_info, key=lambda x: x[0])][1][idx + i][1]:
-                                    match +=1
-                            if match > align[1]:
-                                align = [i, match]
-                        dict_return[chain] = align[0]
-                    else:
-                        dict_return[chain] = 0
-                return dict_return, chain_info
+                    aa_mtx.append(''.join([translate_aa[i[1]] for i in chain_info[chain]]))
 
-            chain_ntd, chain_info = check_aa()
+                mtx = []
+                if domain == 'NTD':
+                    for ref in aa_mtx:
+                        for chain,aa in zip(chain_info.keys(), aa_mtx):
+                            _ = levenshtein_dist_w_memory(ref, aa)
+                            mtx.append(_)
+                            if 'I' in _[-1][:10]:
+                                continue
+                        break
+                if domain == 'CTD':
+                    ref = max(aa_mtx, key = len)
+                    for chain,aa in zip(chain_info.keys(), aa_mtx):
+                        _ = levenshtein_dist_w_memory(ref, aa)
+                        mtx.append(_)
+                return mtx
+
             #check NTD
-            for key in chain_info:
-                chain = self.structure[0].child_dict[key]
-                residues = Selection.unfold_entities(chain, 'R')
+            ntd = check_aa('NTD')
+            for leven, chain in zip(ntd, self.structure[0].get_chains()):
+                residues = sorted(Selection.unfold_entities(chain, 'R'), key = lambda x: x._id[1])
                 residue = residues[0]
-                if chain_ntd[key] != 0:
-                    end = residues[0]._id[1]
-                    beg = end - chain_ntd[key]
-                    for idx in range(beg,end):
+                end = residues[0]._id[1]
+                _ = np.array([*leven[-1]], dtype='<U1')
+                beg = end - np.argmax(_ == 'M')
+                for idx in range(beg,end):
                         new_res = residue.copy()
                         for atom in new_res:
                             atom.detach_parent()
                             atom.set_coord(np.array([9999,9999,9999], dtype="float32"))
                         new_res.id = (' ', idx, chain.get_id())
                         chain.add(new_res)
-            chain_ctd, chain_info = check_aa()
-            for key in chain_info:
-                chain = self.structure[0].child_dict[key]
-                residues = Selection.unfold_entities(chain, 'R')
-                residue = residues[0]
-                res_max = max(residues, key=lambda x: x._id[1])._id[1]
-                if chain_ctd[key] != 0:
-                    for idx in range(res_max + 1, abs(chain_info[max(chain_info, key=lambda x: x[0])][0] - chain_info[key][0])):
+            #check CTD
+            ctd = check_aa('CTD')
+            for leven, chain in zip(ctd, self.structure[0].get_chains()):
+                residues = sorted(Selection.unfold_entities(chain, 'R'), key = lambda x: x._id[1])
+                residue = residues[-1]
+                beg = residue._id[1] + 1
+                _ = np.array([*leven[-1]], dtype='<U1')
+                end = beg + np.sum(_ == 'D')
+                for idx in range(beg,end):
                         new_res = residue.copy()
                         for atom in new_res:
                             atom.detach_parent()
