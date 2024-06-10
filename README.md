@@ -16,4 +16,3 @@ bash test.sh
 - chain2 "specify a chain of interest"
 - oligomer "If a protein is a homo-oligomer this flag will collapse the redundant chains down to one with inter/intra chains denoted"
 
-
