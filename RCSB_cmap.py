@@ -287,8 +287,9 @@ class CMAP():
         dist_matrix = distance_matrix(coor[tot_idx_flat,:],coor[tot_idx_flat,:],p=2)
 
         #contact map
+        #only get contacts within predefined cutoff excluding placeholders 
         contact_map = np.zeros((len(tot_idx_flat),len(tot_idx_flat)))
-        contact_map[dist_matrix < cutoff] = 1
+        contact_map[(dist_matrix < cutoff) & (dist_matrix != 0.)] = 1
 
         res_list = [res for key in chains for res in chains[key]]
         combo = list(itertools.permutations(res_list,2))
