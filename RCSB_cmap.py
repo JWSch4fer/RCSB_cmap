@@ -28,13 +28,27 @@ class RCSB():
                     "PHE":"F", "TYR":"Y", "TRP":"W", "HIS":"H", "LYS":"K", "ARG":"R", "ASP":"D", "GLU":"E", "ASN":"N", "GLN":"Q"}
 
     def Download_PDB(self, pdb_id : str, assembly_id : int, chain_id = None):
-        #Define the url that we are going to modify and ping for data
-        #check for cif format 
-        #this does one does not download the full assembly for oligomers...
-        # url = f"https://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=cif&compression=NO&structureId={pdb_id.upper()}&assemblyId={assembly_id}"
-        url = f"https://files.rcsb.org/pub/pdb/data/assemblies/mmCIF/divided/{pdb_id[1:3].lower()}/{pdb_id.lower()}-assembly{assembly_id}.cif.gz"
+
         if chain_id:
+            #check for pdb format if you want to find a specific chain
+            url = f"https://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=pdb&compression=NO&structureId={pdb_id.upper()}&assemblyId={assembly_id}"
             url = url + f"&chainID={chain_id}"
+
+            session = requests.Session()
+            retry = Retry(connect=5, backoff_factor=0.5)
+            adapter = HTTPAdapter(max_retries=retry)
+            session.mount('http://', adapter)
+            session.mount('https://', adapter)
+            response = session.get(url)
+
+            if response.status_code == 200:
+                #Success, save the file
+                print(f"{pdb_id} is Downloading...")
+                return response.content, 'pdb'
+
+        #Define the url that we are going to modify and ping for data
+        #check for cif format to get the entire assembly
+        url = f"https://files.rcsb.org/pub/pdb/data/assemblies/mmCIF/divided/{pdb_id[1:3].lower()}/{pdb_id.lower()}-assembly{assembly_id}.cif.gz"
 
         session = requests.Session()
         retry = Retry(connect=5, backoff_factor=0.5)
@@ -47,24 +61,6 @@ class RCSB():
             #Success, save the file
             print(f"{pdb_id} is Downloading as cif format...")
             return response.content, 'cif'
-
-        #check for pdb format if cif failed
-        url = f"https://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=pdb&compression=NO&structureId={pdb_id.upper()}&assemblyId={assembly_id}"
-
-        if chain_id:
-            url = url + f"&chainID={chain_id}"
-
-        session = requests.Session()
-        retry = Retry(connect=5, backoff_factor=0.5)
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        response = session.get(url)
-
-        if response.status_code == 200:
-            #Success, save the file
-            print(f"{pdb_id} is Downloading...")
-            return response.content, 'pdb'
 
         #both pdb and cif failed...
         return response.status_code
@@ -596,9 +592,12 @@ def main(target, chain, olig, pdb2, chain2):
         get_pdb = RCSB()
         structure, format_pdb = get_pdb.Download_PDB(target, 1, chain) #download assembly 0 from rcsb
         with tempfile.NamedTemporaryFile() as temp_file:
-            with gzip.open(io.BytesIO(structure), 'rb') as gz: #create an in-memory stream to read the gzipped data
-                gz_bytes = gz.read()#.decode('utf-8')          #can decode to read string but write function is expecting bytes-like-object
-            temp_file.write(gz_bytes)
+            if format_pdb == 'pdb':
+                temp_file.write(structure)
+            else:
+                with gzip.open(io.BytesIO(structure), 'rb') as gz: #create an in-memory stream to read the gzipped data
+                    gz_bytes = gz.read()#.decode('utf-8')          #can decode to read string but write function is expecting bytes-like-object
+                temp_file.write(gz_bytes)
             # biopython pdbparser expects file_type object, tempfile is used to avoid clutter
             # remove hydrogens and non polymer atoms
             structure_processed, aa_structure_processed = get_pdb.PDB_Processing(temp_file.name, target, format_pdb)
@@ -623,9 +622,12 @@ def main(target, chain, olig, pdb2, chain2):
             get_pdb = RCSB()
             structure2, format_pdb2 = get_pdb.Download_PDB(pdb2, 1, chain2) #download assembly 0 from rcsb
             with tempfile.NamedTemporaryFile() as temp_file:
-                with gzip.open(io.BytesIO(structure2), 'rb') as gz: #create an in-memory stream to read the gzipped data
-                    gz_bytes = gz.read()#.decode('utf-8')          #can decode to read string but write function is expecting bytes-like-object
-                temp_file.write(gz_bytes)
+                if format_pdb2 == 'pdb':
+                    temp_file.write(structure2)
+                else:
+                    with gzip.open(io.BytesIO(structure2), 'rb') as gz: #create an in-memory stream to read the gzipped data
+                        gz_bytes = gz.read()#.decode('utf-8')          #can decode to read string but write function is expecting bytes-like-object
+                    temp_file.write(gz_bytes)
                 # biopython pdbparser expects file_type object, tempfile is used to avoid clutter
                 # remove hydrogens and non polymer atoms
                 structure_processed2, aa_structure_processed2 = get_pdb.PDB_Processing(temp_file.name, pdb2, format_pdb)
