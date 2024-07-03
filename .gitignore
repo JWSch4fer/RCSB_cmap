@@ -1,6 +1,7 @@
 *.png
 *.csv
-
+0_readme
+*cif
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

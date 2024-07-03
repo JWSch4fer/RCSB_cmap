@@ -21,12 +21,14 @@ from Bio.PDB.PDBExceptions import PDBConstructionWarning
 logging.basicConfig(filename='cmap.log', encoding='utf-8', level=logging.WARNING)
 warnings.filterwarnings('ignore', category=PDBConstructionWarning) #These will be saved in cmap.log
 
+translate_aa = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K', 'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
+                'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'}
 
 class RCSB():
     def __init__(self) -> None:
-        self.aa_translate = { "GLY":"G", "ALA":"A", "VAL":"V", "LEU":"L", "ILE":"I", "THR":"T", "SER":"S", "MET":"M", "CYS":"C", "PRO":"P",
-                    "PHE":"F", "TYR":"Y", "TRP":"W", "HIS":"H", "LYS":"K", "ARG":"R", "ASP":"D", "GLU":"E", "ASN":"N", "GLN":"Q"}
-
+        pass
+        # self.aa_translate = { "GLY":"G", "ALA":"A", "VAL":"V", "LEU":"L", "ILE":"I", "THR":"T", "SER":"S", "MET":"M", "CYS":"C", "PRO":"P",
+        #                       "PHE":"F", "TYR":"Y", "TRP":"W", "HIS":"H", "LYS":"K", "ARG":"R", "ASP":"D", "GLU":"E", "ASN":"N", "GLN":"Q"}
     def Download_PDB(self, pdb_id : str, assembly_id : int, chain_id = None):
 
         if chain_id:
@@ -69,7 +71,7 @@ class RCSB():
     def PDB_Processing(self, pdb, target, format_pdb):
         #remove anything that isn't protein
         #remove any hydrogens
-        aa = list(self.aa_translate.keys())
+        aa = list(translate_aa.keys())
         try:
             if format_pdb == 'pdb':
                 structure = PDBParser().get_structure(target, pdb)
@@ -107,20 +109,42 @@ class RCSB():
                     residue.detach_child(atom_id)
             for residue in detach_residue_list:
                 chain.detach_child(residue)
-        return structure, [self.aa_translate[key] for key in aa_return]
+        return structure, [translate_aa[key] for key in aa_return]
 
 class CMAP():
     """
     Take in a PDB structure that was loaded using BioPython and produce a contact map
     """
 
-    def __init__(self,structure, olig = None, chain = None):
+    def __init__(self,structure, olig = None, chain = None, chains_like = None, leven = 30):
         #target a specific chain
         if chain:
             mono = [key for key in structure[0].child_dict.keys() if key != chain]
             for key in mono:
                 structure[0].detach_child(key)
 
+        if chains_like:
+            chain_info = {}; aa_dict = {}
+            for chain in structure[0].get_chains():
+                residues = Selection.unfold_entities(chain, 'R')
+                chain_info[chain] = sorted([(int(res._id[1]), res.resname) for res in residues], key = lambda x: x[0])
+            for chain in chain_info:
+                aa_dict[chain] = ''.join([translate_aa[i[1]] for i in chain_info[chain]])
+                if chain.full_id[-1] == chains_like:
+                    ref = ''.join([translate_aa[i[1]] for i in chain_info[chain]])
+            remove = []
+            for aa, chain in zip(aa_dict, structure[0].child_dict.keys()):
+                score, mem = self.levenshtein_dist_w_memory(ref,aa_dict[aa])
+                if score > leven:
+                    remove.append(chain)
+            for chain in remove:
+                structure[0].detach_child(chain)
+            print()
+            print(f"Chain IDs that were retained: {[key for key in structure[0].child_dict.keys()]}")
+            print()
+
+            
+    
         self.structure = structure
         self.Load_Data()
 
@@ -154,6 +178,47 @@ class CMAP():
             for chain in detach_list:
                 self.structure[0].detach_child(chain.id)
 
+    def levenshtein_dist_w_memory(self, string_1, string_2):
+        """
+        Calculate the levenshtein distance between two strings and retain a 'memory' of the edits
+        to change string_2 into string_1
+
+        """
+
+        len_string_1 = len(string_1) + 1
+        len_string_2 = len(string_2) + 1
+        leven_mtx = [[(0,'') for _ in range(len_string_2)] for _ in range(len_string_1)]
+        # tuple is to keep track of the operations required to edit the string for it to match
+        # initialize leven_mtx
+        for col in range(len_string_1):
+            leven_mtx[col][0] = (col, col*'D') #D for deletion
+        for row in range(len_string_2):
+            leven_mtx[0][row] = (row, row*'I') #I for insertion
+
+        # calculate full levenshtein matrix
+        for col in range(1, len_string_1):
+            for row in range(1, len_string_2):
+                if string_1[col -1] == string_2[row -1]:
+                    cost = 0
+                    edit = "M" # M for match
+                else:
+                    cost = 1
+                    edit = "S" # S for substitution
+                #store values for each possibility
+                D_cost, D_edit = leven_mtx[col -1][row]
+                I_cost, I_edit = leven_mtx[col][row -1]
+                S_cost, S_edit = leven_mtx[col -1][row -1]
+
+                # determine the most cost effective move and store the values
+                if D_cost < I_cost and D_cost + 1 < S_cost + cost:
+                    leven_mtx[col][row] = (D_cost + 1, D_edit + "D")
+                elif I_cost < D_cost and I_cost + 1 < S_cost + cost:
+                    leven_mtx[col][row] = (I_cost +1, I_edit + "I")
+                else:
+                    leven_mtx[col][row] = (S_cost +cost, S_edit + edit)
+
+        return leven_mtx[-1][-1]
+
     def Check_Length(self):
         """
         Check the length of each A.A. sequence in a homo-oligomer to standardize cmap size
@@ -161,50 +226,8 @@ class CMAP():
         """
         chain_ids = list(self.structure[0].child_dict.keys())
         if len(chain_ids) >= 2:
-            translate_aa = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
-                            'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
-                            'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
-                            'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'}
-            def levenshtein_dist_w_memory(string_1, string_2):
-                """
-                Calculate the levenshtein distance between two strings and retain a 'memory' of the edits
-                to change string_2 into string_1
 
-                """
 
-                len_string_1 = len(string_1) + 1
-                len_string_2 = len(string_2) + 1
-                leven_mtx = [[(0,'') for _ in range(len_string_2)] for _ in range(len_string_1)]
-                # tuple is to keep track of the operations required to edit the string for it to match
-                # initialize leven_mtx
-                for col in range(len_string_1):
-                    leven_mtx[col][0] = (col, col*'D') #D for deletion
-                for row in range(len_string_2):
-                    leven_mtx[0][row] = (row, row*'I') #I for insertion
-
-                # calculate full levenshtein matrix
-                for col in range(1, len_string_1):
-                    for row in range(1, len_string_2):
-                        if string_1[col -1] == string_2[row -1]:
-                            cost = 0
-                            edit = "M" # M for match
-                        else:
-                            cost = 1
-                            edit = "S" # S for substitution
-                        #store values for each possibility
-                        D_cost, D_edit = leven_mtx[col -1][row]
-                        I_cost, I_edit = leven_mtx[col][row -1]
-                        S_cost, S_edit = leven_mtx[col -1][row -1]
-
-                        # determine the most cost effective move and store the values
-                        if D_cost < I_cost and D_cost + 1 < S_cost + cost:
-                            leven_mtx[col][row] = (D_cost + 1, D_edit + "D")
-                        elif I_cost < D_cost and I_cost + 1 < S_cost + cost:
-                            leven_mtx[col][row] = (I_cost +1, I_edit + "I")
-                        else:
-                            leven_mtx[col][row] = (S_cost +cost, S_edit + edit)
-
-                return leven_mtx[-1][-1]
             def check_aa(domain):
                 chain_info = {}; aa_mtx = []
                 for chain in self.structure[0].get_chains():
@@ -217,7 +240,7 @@ class CMAP():
                 if domain == 'NTD':
                     for ref in aa_mtx:
                         for chain,aa in zip(chain_info.keys(), aa_mtx):
-                            _ = levenshtein_dist_w_memory(ref, aa)
+                            _ = self.levenshtein_dist_w_memory(ref, aa)
                             mtx.append(_)
                             if 'I' in _[-1][:10]:
                                 continue
@@ -225,7 +248,7 @@ class CMAP():
                 if domain == 'CTD':
                     ref = max(aa_mtx, key = len)
                     for chain,aa in zip(chain_info.keys(), aa_mtx):
-                        _ = levenshtein_dist_w_memory(ref, aa)
+                        _ = self.levenshtein_dist_w_memory(ref, aa)
                         mtx.append(_)
                 return mtx
 
@@ -583,7 +606,7 @@ def Create_DF(contact_map,y_name,x_name,name="cmap",x_offset=0,y_offset=0, mask=
     plt.close()
 
 
-def main(target, chain, olig, pdb2, chain2):
+def main(target, chain, olig, pdb2, chain2, chains_like, leven):
 
     if os.path.isfile(target):
         get_pdb = RCSB()
@@ -602,7 +625,7 @@ def main(target, chain, olig, pdb2, chain2):
             # remove hydrogens and non polymer atoms
             structure_processed, aa_structure_processed = get_pdb.PDB_Processing(temp_file.name, target, format_pdb)
 
-    Cmap = CMAP(structure_processed, olig=olig, chain=chain) #cmap object now contains structural information!!!
+    Cmap = CMAP(structure_processed, olig=olig, chain=chain, chains_like=chains_like, leven=leven) #cmap object now contains structural information!!!
     cmap1,mask1 = Cmap.Create_Map(cutoff=8) # cutoff in angstom
 
 
@@ -654,23 +677,42 @@ def CL_input():
     """
     Parse command line arguments that are being passed in
     """
-    if not any((True if _ == '-pdb' else False for _ in sys.argv)) or len(sys.argv) < 2:
-        print('Missing command line arguments!')
-        print('Available flags:')
-        print("-pdb ####   |  RCSB pdb id for the protein of interest (example: 1fha)")
-        print("            |  if ####.pdb(cif) is in cwd the local file will be used (example: 1fha.pdb)")
-        print("-chain #    |  Chain id of interest (example: A)")
-        print("-pdb2 ####  |  used to create a dualfold comparison contact map with -pdb")
-        print("-chain2 #   |  specify the chain of -pdb_2 that will be used for the comparison")
-        print("-oligomer   |  If -pdb is an oligomer this flag will create a superposition of of all contacts")
+
+    error_message = """
+Missing command line arguments!
+Available flags:
+-pdb ####      |  RCSB pdb id for the protein of interest (example: 1fha)
+               |  if ####.pdb(cif) is in cwd the local file will be used (example: 1fha.pdb)
+-chain #       |  Chain id of interest (example: A)
+-pdb2 ####     |  used to create a dualfold comparison contact map with -pdb
+-chain2 #      |  specify the chain of -pdb_2 that will be used for the comparison
+-oligomer      |  If -pdb is an oligomer this flag will create a superposition of of all contacts
+-chains_like # |  retain only chains that are similar to the selected chain. Useful for hetero-oligomer (example: C)
+    -leven #   |  
+** NOTE: chains_like calculates the levenshtein distance between chains and retains chains that are within 30
+** NOTE: of the adjust -leven if this is to restrictive/permissive
+"""
+
+    options = ['-pdb', '-chain', '-pdb2', '-chain2', '-oligomer', '-chains_like', '-leven']
+    for i in sys.argv:
+        if '-' in i and i not in options:
+            print(f"This is not an option: {i}")
+            print(error_message)
+            sys.exit()
+
+    #-pdb has to be defined
+    if not any((True if _ == '-pdb' else False for _ in sys.argv)) or len(sys.argv) <= 2:
+        print(error_message)
         sys.exit()
 
     pdb = sys.argv[[idx for idx, _ in enumerate(sys.argv) if '-pdb' == _][0] + 1]
     pdb2 = None if not [idx for idx, _ in enumerate(sys.argv) if '-pdb2' == _] else sys.argv[[idx for idx, _ in enumerate(sys.argv) if '-pdb2' == _][0] + 1]
     chain = None if not [idx for idx, _ in enumerate(sys.argv) if '-chain' == _] else sys.argv[[idx for idx, _ in enumerate(sys.argv) if '-chain' == _][0] + 1]
     chain2 = None if not [idx for idx, _ in enumerate(sys.argv) if '-chain2' == _] else sys.argv[[idx for idx, _ in enumerate(sys.argv) if '-chain2' == _][0] + 1]
+    chains_like = None if not [idx for idx, _ in enumerate(sys.argv) if '-chains_like' == _] else sys.argv[[idx for idx, _ in enumerate(sys.argv) if '-chains_like' == _][0] + 1]
+    leven = 30 if not [idx for idx, _ in enumerate(sys.argv) if '-leven' == _] else sys.argv[[idx for idx, _ in enumerate(sys.argv) if '-leven' == _][0] + 1]
     olig = True if any((True if _ == '-oligomer' else False for _ in sys.argv)) else False
-    return pdb, pdb2, chain, chain2, olig
+    return pdb, pdb2, chain, chain2, olig, chains_like, leven
 
 if __name__ == "__main__":
     """
@@ -683,6 +725,6 @@ if __name__ == "__main__":
         python RCSB_cmap.py 1fha olig
     """
 
-    pdb, pdb2, chain, chain2, olig = CL_input()
-    print('-pdb =', pdb,'-pdb2 =', pdb2,'-chain =', chain,'-chain2 =', chain2,'-oligomer =', olig)
-    main(pdb, chain, olig, pdb2, chain2)
+    pdb, pdb2, chain, chain2, olig, chains_like, leven = CL_input()
+    print('-pdb =', pdb,'-pdb2 =', pdb2,'-chain =', chain,'-chain2 =', chain2,'-oligomer =', olig, '-chains_like =', chains_like, 'leven =', leven)
+    main(pdb, chain, olig, pdb2, chain2, chains_like, leven)
