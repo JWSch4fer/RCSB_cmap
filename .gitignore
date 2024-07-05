@@ -2,6 +2,7 @@
 *.csv
 0_readme
 *cif
+*pdb
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

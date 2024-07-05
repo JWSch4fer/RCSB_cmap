@@ -143,8 +143,7 @@ class CMAP():
             print(f"Chain IDs that were retained: {[key for key in structure[0].child_dict.keys()]}")
             print()
 
-            
-    
+
         self.structure = structure
         self.Load_Data()
 
@@ -227,7 +226,6 @@ class CMAP():
         chain_ids = list(self.structure[0].child_dict.keys())
         if len(chain_ids) >= 2:
 
-
             def check_aa(domain):
                 chain_info = {}; aa_mtx = []
                 for chain in self.structure[0].get_chains():
@@ -236,21 +234,22 @@ class CMAP():
                 for chain in chain_info:
                     aa_mtx.append(''.join([translate_aa[i[1]] for i in chain_info[chain]]))
 
-                mtx = []
                 if domain == 'NTD':
                     for ref in aa_mtx:
+                        mtx = []
                         for chain,aa in zip(chain_info.keys(), aa_mtx):
                             _ = self.levenshtein_dist_w_memory(ref, aa)
                             mtx.append(_)
                             if 'I' in _[-1][:10]:
-                                continue
-                        break
+                                break
+                    return mtx
                 if domain == 'CTD':
                     ref = max(aa_mtx, key = len)
+                    mtx = []
                     for chain,aa in zip(chain_info.keys(), aa_mtx):
                         _ = self.levenshtein_dist_w_memory(ref, aa)
                         mtx.append(_)
-                return mtx
+                    return mtx
 
             #check NTD
             ntd = check_aa('NTD')
