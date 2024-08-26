@@ -1,7 +1,8 @@
 # RCSB_cmap
 Create contact maps of RCSB structures
 - Convient tool for quickly creating contact maps of proteins of interest from [rcsb.org](https://www.rcsb.org/)
-- This can also generate contact maps of local .pdb files
+- This program uses requests API to grab cif/pdb files from rcsb.org and generate contact maps
+- This program can also generate contact maps of local pdb files
 
 ### Install
 ```
