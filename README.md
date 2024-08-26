@@ -23,6 +23,7 @@ bash test.sh
 ```
 **NOTE**: chains_like calculates the levenshtein distance between chains and retains chains that are within 30 deletions/insertions/mutations
 
+## Examples
 Full contact associated with RCSB ID 1A5M.
 ```
 python3 RCSB_cmap.py -pdb 1a5m
@@ -36,3 +37,9 @@ Use -chains_like flag to find all similar amino acid chains in a protein complex
 | ------------------------------- | ----------------------------------------- |
 |![](/img/1a5m_chains_like_C.png) | ![](/img/1a5m_chains_like_C_collapse.png) |
 |```python3 RCSB_cmap.py -pdb 1a5m -chains_like C``` |```python3 RCSB_cmap.py -pdb 1a5m -chains_like C -oligomer ```|
+
+Specify both -pdb and -pdb2 to create a dual-fold contact map to compare similar structures
+```
+python3 RCSB_cmap.py -pdb 1rep -oligomer -pdb2 2z9o
+```
+![](/img/comp_1rep_2z9o_collapse.png)
