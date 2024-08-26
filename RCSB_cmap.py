@@ -599,7 +599,9 @@ def Create_DF(contact_map,y_name,x_name,name="cmap",x_offset=0,y_offset=0, mask=
     ax.set_position([box.x0, box.y0, box.width * 0.85, box.height* 0.85])
 
     # Put a legend to the right of the current axis
-    ax.legend(df['type'].unique(),loc='center left', bbox_to_anchor=(1, 0.5))
+    lgnd = ax.legend(df['type'].unique(),loc='center left', bbox_to_anchor=(1, 0.5))
+    for handle in lgnd.legend_handles:
+        handle.set_sizes([15.0])
 
     name = name.replace(re.search(r"(.cif|.pdb)", name).group(0), '') if bool(re.search(r"(.cif|.pdb)", name)) else name
     print('Writing csv...',f"{name}_df.csv")

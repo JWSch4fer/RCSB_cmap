@@ -23,3 +23,7 @@ bash test.sh
 **NOTE**: of the adjust -leven if this is to restrictive/permissive
 
 ![temporary text](/img/1a5m.png)
+
+
+Use -chains_like flag to find all similar amino acid chains in a protein complex
+![](/img/1a5m_chains_like_C.png)  ![](/img/1a5m_chains_like_C_collapse.png)
