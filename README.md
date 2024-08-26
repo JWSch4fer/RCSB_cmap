@@ -26,4 +26,7 @@ bash test.sh
 
 
 Use -chains_like flag to find all similar amino acid chains in a protein complex
-![](/img/1a5m_chains_like_C.png)  ![](/img/1a5m_chains_like_C_collapse.png)
+
+| All chains with sequences like chain C  | Collapsed version       |
+| ------------------------------- | ----------------------------------------- |
+|![](/img/1a5m_chains_like_C.png) | ![](/img/1a5m_chains_like_C_collapse.png) |
