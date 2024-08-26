@@ -22,4 +22,4 @@ bash test.sh
 **NOTE**: chains_like calculates the levenshtein distance between chains and retains chains that are within 30
 **NOTE**: of the adjust -leven if this is to restrictive/permissive
 
-![temporary text](/png/1a5m.png)
+![temporary text](/img/1a5m.png)
