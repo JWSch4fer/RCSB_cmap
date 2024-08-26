@@ -13,7 +13,7 @@ bash test.sh
 ## Available flags:
 ```
  -pdb ####      |  RCSB pdb id for the protein of interest (example: 1fha)
-                 |  if ####.pdb(cif) is in cwd the local file will be used (example: 1fha.pdb)
+                |  if ####.pdb(cif) is in cwd the local file will be used (example: 1fha.pdb)
  -chain #       |  Chain id of interest (example: A)
  -pdb2 ####     |  used to create a dualfold comparison contact map with -pdb
  -chain2 #      |  specify the chain of -pdb_2 that will be used for the comparison
@@ -23,11 +23,16 @@ bash test.sh
 ```
 **NOTE**: chains_like calculates the levenshtein distance between chains and retains chains that are within 30 deletions/insertions/mutations
 
+Full contact associated with RCSB ID 1A5M.
+```
+python3 RCSB_cmap.py -pdb 1a5m
+```
 ![temporary text](/img/1a5m.png)
 
 
 Use -chains_like flag to find all similar amino acid chains in a protein complex
 
-| All chains with sequences like chain C  | Collapsed version       |
+| All chains with sequences like chain C  | Collapsed version                 |
 | ------------------------------- | ----------------------------------------- |
 |![](/img/1a5m_chains_like_C.png) | ![](/img/1a5m_chains_like_C_collapse.png) |
+|```python3 RCSB_cmap.py -pdb 1a5m -chains_like C``` |```python3 RCSB_cmap.py -pdb 1a5m -chains_like C -oligomer ```|
