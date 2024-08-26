@@ -575,18 +575,24 @@ def Create_DF(contact_map,y_name,x_name,name="cmap",x_offset=0,y_offset=0, mask=
     df['i'] = df['i'] - x_offset
     df['j'] = df['j'] - y_offset
     axes = []
+
+    #keep contacts from being on the edge of the plot
+    ax.set_ylim((min(df.i.min(),df.j.min())-5,max(df.i.max(),df.j.max())+5))
+    ax.set_xlim((min(df.i.min(),df.j.min())-5,max(df.i.max(),df.j.max())+5))
+
+    #standardize size of markers no matter the size of the protein
+    r = 0.5 #radius of markers
+    r_ = ax.transData.transform([r,0])[0] - ax.transData.transform([0,0])[0] #translate radius into image coords
+
+
     #each 'type' needs its own handle for matplotlib to give unique legend elements
     for t in df['type'].unique():
-        axes.append(ax.scatter(x=df.loc[df['type'].eq(t), 'i'], y= df.loc[df['type'].eq(t), 'j'],c=df.loc[df['type'].eq(t), 'type'].map(colors), s=15, linewidth=0, linestyle="None"))
+        axes.append(ax.scatter(x=df.loc[df['type'].eq(t), 'i'], y= df.loc[df['type'].eq(t), 'j'],c=df.loc[df['type'].eq(t), 'type'].map(colors), s=np.pi * r_, linewidth=0, linestyle="None"))
 
     if len(mask) > 0:
         axes.append(ax.imshow(mask,cmap='Greys', interpolation='none', alpha=0.11))
     ax.set_ylabel(y_name)
     ax.set_xlabel(x_name)
-    #keep contacts from being on the edge of the plot
-    ax.set_ylim((min(df.i.min(),df.j.min())-5,max(df.i.max(),df.j.max())+5))
-    ax.set_xlim((min(df.i.min(),df.j.min())-5,max(df.i.max(),df.j.max())+5))
-
 
     # Shrink current axis by 20%
     box = ax.get_position()

@@ -1,8 +1,7 @@
-*.png
-*.csv
 0_readme
 *cif
 *pdb
+_not_for_gh/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
