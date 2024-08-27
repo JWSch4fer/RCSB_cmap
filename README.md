@@ -1,17 +1,21 @@
-# RCSB_cmap
-Create contact maps of RCSB structures
-- Convient tool for quickly creating contact maps of proteins of interest from [rcsb.org](https://www.rcsb.org/)
-- This program uses requests API to grab cif/pdb files from rcsb.org and generate contact maps
-- This program can also generate contact maps of local pdb files
+# Create a contact map from RCSB
 
-### Install
+This python-CLI enables users to create contact maps of proteins directly from the [RCSB](https://www.rcsb.org/) Protein Data Bank (PDB). By specifying a protein's RCSB ID, one can download the structure, select specific chains, and generate contact maps.
+
+Key Features:
+- Download by RCSB ID: Retrieve protein structures from the RCSB website using Python's requests module.
+- Local structures (pdb/cif) can also be used to generate contact maps
+- Chain Specification: Specify individual protein chains for focused analysis.
+- Dual-Fold Contact Maps: allow the creation of dual-fold contact maps (one protein is displayed on the upper triangle and another on the lower triangle, making it easier to visualize and compare structural differences)
+
+## Installation
 ```
 pip install -r requirements.txt
 
 bash test.sh
 ```
 
-## Available flags:
+## Usage:
 ```
  -pdb ####      |  RCSB pdb id for the protein of interest (example: 1fha)
                 |  if ####.pdb(cif) is in cwd the local file will be used (example: 1fha.pdb)
@@ -24,7 +28,7 @@ bash test.sh
 ```
 **NOTE**: chains_like calculates the levenshtein distance between chains and retains chains that are within 30 deletions/insertions/mutations
 
-## Examples
+### Examples
 Full contact associated with RCSB ID 1A5M.
 ```
 python3 RCSB_cmap.py -pdb 1a5m
@@ -44,3 +48,8 @@ Specify both -pdb and -pdb2 to create a dual-fold contact map to compare similar
 python3 RCSB_cmap.py -pdb 1rep -oligomer -pdb2 2z9o
 ```
 ![](/img/comp_1rep_2z9o_collapse.png)
+
+
+### 🤝 Contributing
+
+Contributions are welcome! Please fork the repository and create a pull request with your changes. For major changes, please open an issue to discuss what you would like to change.
