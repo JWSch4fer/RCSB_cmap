@@ -6,6 +6,7 @@ Key Features:
 - Download by RCSB ID: Retrieve protein structures from the RCSB website using Python's requests module.
 - Local structures (pdb/cif) can also be used to generate contact maps
 - Chain Specification: Specify individual protein chains for focused analysis.
+- *Chains like* Specification: Specify a chain and the CLI will search the protein complex for chains like the one specified(similarity is calculated using Levenshtein distance).
 - Dual-Fold Contact Maps: allow the creation of dual-fold contact maps (one protein is displayed on the upper triangle and another on the lower triangle, making it easier to visualize and compare structural differences)
 
 ## Installation
