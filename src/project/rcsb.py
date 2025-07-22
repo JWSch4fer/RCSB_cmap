@@ -1,10 +1,9 @@
 ### src/project/rcsb.py
 from pathlib import Path
-import gzip
 import io
 import logging
 from typing import Optional, Tuple, Union
-import tempfile
+import tempfile, gzip
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -78,9 +77,9 @@ class RCSBClient:
         response = self.session.get(url)
         response.raise_for_status()
         logging.info(f"mmCIF download successful for {pdb_id}")
-        return gzip.decompress(response.content), "cif"
+        return response.content, "cif"
 
-    def parse_structure(self, data: Union[bytes, io.IOBase], fmt: str, target: str):
+    def parse_structure(self, data: bytes, fmt: str, target: str):
         """
         Parse raw PDB/mmCIF bytes into a Biopython Structure.
 
@@ -92,15 +91,17 @@ class RCSBClient:
         Returns:
             Biopython Structure object.
         """
-
         with tempfile.NamedTemporaryFile() as temp_file:
             if fmt == "pdb":
-                parser = PDBParser(QUIET=True) 
+                parser = PDBParser(QUIET=True)
                 temp_file.write(data)
-                structure = parser.get_structure(target, temp_file)
+                structure = parser.get_structure(target, temp_file.name)
                 return structure
             if fmt == "cif":
                 parser = MMCIFParser(QUIET=True)
-
-                
-
+                # create an in-memory stream to read the gzipped data
+                with gzip.open(io.BytesIO(data), "rb") as gz:
+                    gz_bytes = gz.read()  # .decode('utf-8')
+                temp_file.write(gz_bytes)
+                structure = parser.get_structure(target, temp_file.name)
+                return structure

@@ -52,12 +52,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-
     args = parse_args()
-    print("???", args)
     client = RCSBClient()
-    print(client)
-
+    print("}}}")
     pdb_input = Path(args.pdb)
     if pdb_input.is_file():
         raw, fmt = pdb_input.read_bytes(), pdb_input.suffix.lstrip(".")
@@ -66,7 +63,9 @@ def main() -> None:
         raw, fmt = client.download_pdb(args.pdb, chain_id=args.chain)
         target_name = args.pdb
 
+    # print(raw, fmt, target_name)
     structure = client.parse_structure(raw, fmt, target_name)
+    print("//", structure)
     cmap_obj = ContactMap(structure, cutoff=args.cutoff)
     cmap = cmap_obj.compute_contact_map()
 

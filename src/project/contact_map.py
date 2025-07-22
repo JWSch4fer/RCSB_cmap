@@ -41,11 +41,14 @@ class ContactMap:
         """
         self.structure = structure
         self.cutoff = cutoff
+        print("???")
         self.coordinates = self._extract_ca_coordinates()
 
     def _extract_ca_coordinates(self) -> np.ndarray:
-        coords = []
+        #some RCSB enteries are poorly written, we'll deal with empty chains here
+        coords, detach_list = [], []
         for chain in self.structure.get_chains():
+            print(chain)
             residues = sorted(
                 Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
             )
@@ -54,6 +57,9 @@ class ContactMap:
                     coords.append(res["CA"].get_coord())
         return np.array(coords, dtype=float)
 
+    def fill_in_gap(self, res_id_start: int, res_id_stop: int) -> None:
+        pass
+    
     def compute_contact_map(self) -> np.ndarray:
         dm = distance_matrix(self.coordinates, self.coordinates)
         cmap = (dm < self.cutoff).astype(int)
