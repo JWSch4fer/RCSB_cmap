@@ -62,10 +62,9 @@ def main() -> None:
         raw, fmt = client.download_pdb(args.pdb, chain_id=args.chain)
         target_name = args.pdb
 
-    # print(raw, fmt, target_name)
     structure = client.parse_structure(raw, fmt, target_name)
     cmap_obj = ContactMap(structure, cutoff=args.cutoff)
-    cmap = cmap_obj.compute_contact_map()
+    cmap = cmap_obj.compute_residue_contact_map()
 
     if args.oligomer:
         n_chains = len(structure[0].child_list)

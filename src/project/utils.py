@@ -1,6 +1,7 @@
 ### src/project/utils.py
 import numpy as np
 from typing import Tuple, List
+import matplotlib.pyplot as plt
 
 
 def levenshtein_distance(s1: str, s2: str) -> Tuple[int, List[str]]:
@@ -43,3 +44,29 @@ def pad_with(vector: np.ndarray, pad_width: Tuple[int, int], iaxis: int, kwargs)
     pad_value = kwargs.get("padder", 0)
     vector[: pad_width[0]] = pad_value
     vector[-pad_width[1] :] = pad_value
+
+
+def plot_contact_map(contact_map: np.ndarray) -> None:
+    """
+    Display a residue–residue contact map.
+
+    Args:
+        contact_map: 2D binary NumPy array (shape: R×R).
+    """
+    plt.figure(figsize=(8, 8))
+    # Render the contact map as an image
+    img = plt.imshow(
+        contact_map,
+        cmap="viridis",  # perceptually uniform colormap
+        interpolation="none",  # no smoothing between cells
+        origin="lower",  # put [0,0] in the bottom-left
+    )
+    plt.colorbar(
+        img, label="Contact presence"
+    )  # show scale :contentReference[oaicite:2]{index=2}
+    plt.xlabel("Residue index")
+    plt.ylabel("Residue index")
+    plt.title("Protein Contact Map")
+    plt.tight_layout()
+    plt.savefig("temp.png")
+    plt.clf()
