@@ -57,7 +57,18 @@ class RCSBClient:
             HTTPError: if neither download succeeds.
         """
         pdb_id = pdb_id.lower()
-        # 1) Try PDB format (allows chain filtering)
+
+        # Fallback to mmCIF (.cif.gz)
+        cif_path = f"{pdb_id[1:3]}/{pdb_id}-assembly{assembly_id}.cif.gz"
+        url = f"{self.BASE_CIF_URL}/{cif_path}"
+        response = self.session.get(url)
+        response.raise_for_status()
+        logging.info(f"mmCIF download successful for {pdb_id}")
+
+        if response.ok:
+            return response.content, "cif"
+
+        # Try PDB format (allows chain filtering)
         params = {
             "fileFormat": "pdb",
             "compression": "NO",
@@ -70,14 +81,6 @@ class RCSBClient:
         if response.ok and response.content.strip().startswith(b"ATOM"):
             logging.info(f"PDB download successful for {pdb_id}")
             return response.content, "pdb"
-
-        # 2) Fallback to mmCIF (.cif.gz)
-        cif_path = f"{pdb_id[1:3]}/{pdb_id}-assembly{assembly_id}.cif.gz"
-        url = f"{self.BASE_CIF_URL}/{cif_path}"
-        response = self.session.get(url)
-        response.raise_for_status()
-        logging.info(f"mmCIF download successful for {pdb_id}")
-        return response.content, "cif"
 
     def parse_structure(self, data: bytes, fmt: str, target: str):
         """
