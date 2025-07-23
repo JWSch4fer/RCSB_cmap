@@ -1,6 +1,7 @@
 ### src/project/contact_map.py
 import numpy as np
 from sklearn.neighbors import radius_neighbors_graph
+from scipy.sparse import csr_matrix
 import itertools
 from typing import Tuple, Optional
 from Bio.PDB import Selection
@@ -44,7 +45,7 @@ class ContactMap:
         self.structure = structure
         self.cutoff = cutoff
         self._process_protein()
-        self.all_coords, self.all_coords_ids = self._extract_ca_coordinates()
+        self.all_coords, self.all_coords_ids = self._extract_coordinates()
 
     def _process_protein(self) -> None:
         atom_number = 1
@@ -78,11 +79,11 @@ class ContactMap:
                 for atom_id in detach_id_list:
                     residue.detach_child(atom_id)
 
-            # remove everythin other than the protein
+            # remove everything other than the protein
             for residue in detach_residue_list:
                 chain.detach_child(residue)
 
-    def _extract_ca_coordinates(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _extract_coordinates(self) -> Tuple[np.ndarray, np.ndarray]:
         # some RCSB enteries are poorly written, we'll deal with empty chains here
         detach_list = []
 
@@ -107,6 +108,7 @@ class ContactMap:
         # Remove any chains that had zero residues
         for ch in detach_list:
             self.structure[0].detach_child(ch.id)
+
         all_coords = [
             (atom.coord, chain._id + str(residue.get_id()[1]))
             for chain in self.structure[0].get_chains()
@@ -131,12 +133,6 @@ class ContactMap:
             new_res.id = (" ", missing_idx, chain.get_id())
             chain.add(new_res)
 
-    # def compute_contact_map(self) -> np.ndarray:
-    # dm = distance_matrix(self.coordinates, self.coordinates)
-    # cmap = (dm < self.cutoff).astype(int)
-    # np.fill_diagonal(cmap, 0)
-    # return cmap
-
     def compute_residue_contact_map(self) -> np.ndarray:
         """
         Compute a residue‐level contact map by aggregating heavy‐atom distances.
@@ -148,47 +144,10 @@ class ContactMap:
         Returns:
             R×R binary contact map, where R is the total number of residues.
         """
-        # 1. Extract heavy‐atom coords and residue indices
-        # coords = []
-        # resid_idx = []
-        # for chain in self.structure[0]:
-        #     for residue in sorted(
-        #         Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
-        #     ):
-        #         idx = residue.get_id()[1]  # residue sequence number
-        #         for atom in residue:
-        #             if atom.element != "H":  # heavy atom check
-        #                 coords.append(atom.coord)
-        #                 resid_idx.append(idx)
-        # coords = np.array(coords, dtype=float)  # shape: (H, 3)
-        # resid_idx = np.array(resid_idx, dtype=int)  # length H
         coords = self.all_coords
         resid_idx = self.all_coords_ids
 
-        # 2. Compute H×H pairwise distances and threshold
-        print(coords.shape)
-        print(resid_idx.shape)
-        dm = distance_matrix(coords, coords, p=2)  # SciPy fast C‑loop
-        mask = (dm < self.cutoff) & (dm > 0.0)  # Boolean contact mask
-        print("1")
-        # 3. Build one‐hot encoding (R × H)
-        unique_res = np.unique(resid_idx)
-        R = unique_res.size
-        # Map residue sequence numbers to 0…R‑1 indices
-        res_to_idx = {res: i for i, res in enumerate(unique_res)}
-
-        print("2")
-        # 3. Build one‐hot encoding (R × H)
-        mapped = np.vectorize(res_to_idx.get)(resid_idx)  # length H
-        one_hot = np.zeros((R, coords.shape[0]), dtype=int)
-        one_hot[mapped, np.arange(coords.shape[0])] = 1  # O(H) assignment
-
-        print("3")
-        # 3. Build one‐hot encoding (R × H)
-        # 4. Aggregate via matrix multiplication
-        # contact_counts = one_hot @ mask.astype(int) @ one_hot.T
-
-        # X.shape == (H, 3)
+        # Compute H×H pairwise distances and threshold all atoms
         A = radius_neighbors_graph(
             X=coords,
             radius=self.cutoff,
@@ -197,17 +156,34 @@ class ContactMap:
             include_self=False,
             n_jobs=-1,
         )
-        # A is a CSR matrix of shape (H, H); next map to residues same as above
-        print(A)
-        plot_contact_map(A.toarray())
-        sys.exit()
+
+        valid = ~np.all(coords == 9999.0, axis=1)  # deal with placeholder atoms
+        mask2d = valid[:, None] & valid[None, :]
+        A = A.multiply(mask2d)
+
+        # Build one‐hot encoding (R × H)
+        unique_res = np.unique(resid_idx)
+        R = unique_res.size
+        # Map residue sequence numbers to 0…R‑1 indices
+        res_to_idx = {res: i for i, res in enumerate(unique_res)}
+        mapped = np.vectorize(res_to_idx.get)(resid_idx)  # length H
+        one_hot = np.zeros((R, coords.shape[0]), dtype=int)
+        one_hot[mapped, np.arange(coords.shape[0])] = 1  # O(H) assignment
+        one_hot_sparse = csr_matrix(one_hot)
+
+        # Aggregate via matrix multiplication
+        # this stip must be sparse matrix operation
+        contact_counts = one_hot_sparse @ A @ one_hot_sparse.T
+
         contact_map = (contact_counts > 0).astype(int)  # Binarize >0
 
-        # 5. Remove diagonal and near‐diagonal hits
+        # Remove diagonal and near‐diagonal hits
         idxs = np.arange(R)
         diag_mask = np.abs(idxs[:, None] - idxs[None, :]) <= 3
         contact_map[diag_mask] = 0
 
+        plot_contact_map(contact_map.toarray())
+        sys.exit()
         return contact_map
 
     def collapse_homo(self, cmap: np.ndarray, n_chains: int) -> np.ndarray:

@@ -1,6 +1,6 @@
 ### src/project/rcsb.py
 from pathlib import Path
-import io
+import io, json
 import logging
 from typing import Optional, Tuple, Union
 import tempfile, gzip
@@ -78,7 +78,7 @@ class RCSBClient:
         if chain_id:
             params["chainID"] = chain_id
         response = self.session.get(self.BASE_PDB_URL, params=params)
-        if response.ok and response.content.strip().startswith(b"ATOM"):
+        if response.ok:
             logging.info(f"PDB download successful for {pdb_id}")
             return response.content, "pdb"
 
