@@ -1,6 +1,7 @@
 ### src/project/contact_map.py
 import numpy as np
 from sklearn.neighbors import radius_neighbors_graph
+from sklearn.preprocessing import LabelBinarizer
 from scipy.sparse import csr_matrix
 import itertools
 from typing import Tuple, Optional
@@ -41,11 +42,16 @@ class ContactMap:
         Args:
             structure: Biopython Structure object.
             cutoff: Å distance threshold.
+            all_coords: every heavy atom x,y,z
+            all_coords_res_ids: the chain id:res id
+            all_coords_int_ids: integer index from 0 to # of residues
         """
         self.structure = structure
         self.cutoff = cutoff
         self._process_protein()
-        self.all_coords, self.all_coords_ids = self._extract_coordinates()
+        self.all_coords, self.all_coords_res_ids, self.all_coords_int_ids = (
+            self._extract_coordinates()
+        )
 
     def _process_protein(self) -> None:
         atom_number = 1
@@ -83,7 +89,7 @@ class ContactMap:
             for residue in detach_residue_list:
                 chain.detach_child(residue)
 
-    def _extract_coordinates(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _extract_coordinates(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         # some RCSB enteries are poorly written, we'll deal with empty chains here
         detach_list = []
 
@@ -109,18 +115,28 @@ class ContactMap:
         for ch in detach_list:
             self.structure[0].detach_child(ch.id)
 
-        all_coords = [
-            (atom.coord, chain._id + str(residue.get_id()[1]))
-            for chain in self.structure[0].get_chains()
-            for residue in Selection.unfold_entities(chain, "R")
-            for atom in residue.get_list()
-        ]
+        _temp_id = 0
+        all_coords = []
+        for chain in self.structure.get_chains():
+            for residue in sorted(
+                Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
+            ):
+                for atom in residue.get_list():
+                    all_coords.append(
+                        (
+                            atom.coord,
+                            chain._id + ":" + str(residue.get_id()[1]),
+                            _temp_id,
+                        )
+                    )
+                _temp_id += 1
 
         # return coordinates and identifiers
         _ = np.array(all_coords, dtype=object)
         all_coords = np.stack(_[:, 0], axis=0)
-        all_coords_ids = np.stack(_[:, 1], axis=0)
-        return all_coords, all_coords_ids
+        all_coords_res_ids = np.stack(_[:, 1], axis=0)
+        all_coords_int_ids = np.stack(_[:, 2], axis=0)
+        return all_coords, all_coords_res_ids, all_coords_int_ids
 
     def fill_gap(self, res_start: int, res_stop: int, chain, curr_res) -> None:
         # Generate missing indices lazily
@@ -145,7 +161,7 @@ class ContactMap:
             R×R binary contact map, where R is the total number of residues.
         """
         coords = self.all_coords
-        resid_idx = self.all_coords_ids
+        resid_idx = self.all_coords_int_ids
 
         # Compute H×H pairwise distances and threshold all atoms
         A = radius_neighbors_graph(
@@ -156,34 +172,27 @@ class ContactMap:
             include_self=False,
             n_jobs=-1,
         )
-
         valid = ~np.all(coords == 9999.0, axis=1)  # deal with placeholder atoms
         mask2d = valid[:, None] & valid[None, :]
         A = A.multiply(mask2d)
 
         # Build one‐hot encoding (R × H)
-        unique_res = np.unique(resid_idx)
-        R = unique_res.size
-        # Map residue sequence numbers to 0…R‑1 indices
-        res_to_idx = {res: i for i, res in enumerate(unique_res)}
-        mapped = np.vectorize(res_to_idx.get)(resid_idx)  # length H
-        one_hot = np.zeros((R, coords.shape[0]), dtype=int)
-        one_hot[mapped, np.arange(coords.shape[0])] = 1  # O(H) assignment
+        lb = LabelBinarizer()
+        lb.fit(resid_idx)
+        one_hot = lb.transform(resid_idx)
         one_hot_sparse = csr_matrix(one_hot)
 
         # Aggregate via matrix multiplication
-        # this stip must be sparse matrix operation
-        contact_counts = one_hot_sparse @ A @ one_hot_sparse.T
-
+        # this step must be sparse matrix operation
+        contact_counts = one_hot_sparse.T @ A @ one_hot_sparse
         contact_map = (contact_counts > 0).astype(int)  # Binarize >0
+        contact_map = contact_map.toarray()
 
         # Remove diagonal and near‐diagonal hits
-        idxs = np.arange(R)
+        idxs = np.arange(contact_map.shape[0])
         diag_mask = np.abs(idxs[:, None] - idxs[None, :]) <= 3
         contact_map[diag_mask] = 0
 
-        plot_contact_map(contact_map.toarray())
-        sys.exit()
         return contact_map
 
     def collapse_homo(self, cmap: np.ndarray, n_chains: int) -> np.ndarray:
