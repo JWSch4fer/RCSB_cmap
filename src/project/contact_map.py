@@ -51,14 +51,10 @@ class ContactMap:
         self.structure = structure
         self.cutoff = cutoff
         self._process_protein()
-<<<<<<< HEAD
+        self._check_length()
         self.all_coords, self.all_coords_res_ids, self.all_coords_int_ids = (
             self._extract_coordinates()
         )
-=======
-        self._pad_chains()
-        self.all_coords, self.all_coords_ids = self._extract_coordinates()
->>>>>>> e0aeb1c (update for oligomers)
 
     def _process_protein(self) -> None:
         atom_number = 1
@@ -191,12 +187,11 @@ class ContactMap:
 
         # Aggregate via matrix multiplication
         # this step must be sparse matrix operation
-<<<<<<< HEAD
-        contact_counts = one_hot_sparse.T @ A @ one_hot_sparse
-=======
-        contact_counts = one_hot_sparse @ A @ one_hot_sparse.T
 
->>>>>>> e0aeb1c (update for oligomers)
+        contact_counts = one_hot_sparse.T @ A @ one_hot_sparse
+
+        # contact_counts = one_hot_sparse @ A @ one_hot_sparse.T
+
         contact_map = (contact_counts > 0).astype(int)  # Binarize >0
         contact_map = contact_map.toarray()
 
@@ -237,15 +232,15 @@ class ContactMap:
             residues = sorted(
                 Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
             )
-            aa_strings.append("".join(translate_aa[res.resname] for res in residues))
+            aa_strings.append("".join(TRANSLATE_AA[res.resname] for res in residues))
 
         # helper: compute matrices for a given domain
         def compute_matrices(domain: str):
             if domain == "NTD":
-                # for NTD, stop at first insertion within first 10 ops
+                # for NTD, stop at first insertion within first 10
                 matrices = []
                 for ref in aa_strings:
-                    row = [self.levenshtein_dist_w_memory(ref, aa) for aa in aa_strings]
+                    row = [levenshtein_distance(ref, aa) for aa in aa_strings]
                     matrices.append(row)
                     # if any insertion ('I') in the first 10 ops of this alignment, break
                     if any("I" in ops[-1][:10] for _, ops in row):
@@ -255,7 +250,7 @@ class ContactMap:
             elif domain == "CTD":
                 # for CTD, align everything to the longest sequence
                 ref = max(aa_strings, key=len)
-                return [[self.levenshtein_dist_w_memory(ref, aa) for aa in aa_strings]]
+                return [[levenshtein_distance(ref, aa) for aa in aa_strings]]
 
             else:
                 return []

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .rcsb import RCSBClient
 from .contact_map import ContactMap
+from .utils import plot_contact_map
 
 # Configure logging
 logging.basicConfig(
@@ -65,6 +66,7 @@ def main() -> None:
     structure = client.parse_structure(raw, fmt, target_name)
     cmap_obj = ContactMap(structure, cutoff=args.cutoff)
     cmap = cmap_obj.compute_residue_contact_map()
+    plot_contact_map(cmap)
 
     if args.oligomer:
         n_chains = len(structure[0].child_list)
