@@ -9,6 +9,8 @@ from Bio.PDB import Selection
 from scipy.spatial import distance_matrix
 from .utils import levenshtein_distance, plot_contact_map
 import sys
+from itertools import zip_longest
+
 
 TRANSLATE_AA = {
     "CYS": "C",
@@ -49,9 +51,14 @@ class ContactMap:
         self.structure = structure
         self.cutoff = cutoff
         self._process_protein()
+<<<<<<< HEAD
         self.all_coords, self.all_coords_res_ids, self.all_coords_int_ids = (
             self._extract_coordinates()
         )
+=======
+        self._pad_chains()
+        self.all_coords, self.all_coords_ids = self._extract_coordinates()
+>>>>>>> e0aeb1c (update for oligomers)
 
     def _process_protein(self) -> None:
         atom_number = 1
@@ -184,7 +191,12 @@ class ContactMap:
 
         # Aggregate via matrix multiplication
         # this step must be sparse matrix operation
+<<<<<<< HEAD
         contact_counts = one_hot_sparse.T @ A @ one_hot_sparse
+=======
+        contact_counts = one_hot_sparse @ A @ one_hot_sparse.T
+
+>>>>>>> e0aeb1c (update for oligomers)
         contact_map = (contact_counts > 0).astype(int)  # Binarize >0
         contact_map = contact_map.toarray()
 
@@ -208,3 +220,81 @@ class ContactMap:
         intra = (intra > 0).astype(int)
         inter = (inter > 0).astype(int) * 2
         return intra + inter
+
+    def _check_length(self):
+        """
+        Standardize homo‑oligomer chain lengths by padding missing residues
+        at the N‑terminus (NTD) and C‑terminus (CTD) based on Levenshtein alignments.
+        """
+        # get list of chains
+        chains = list(self.structure[0].get_chains())
+        if len(chains) < 2:
+            return
+
+        # build the AA string for each chain once
+        aa_strings = []
+        for chain in chains:
+            residues = sorted(
+                Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
+            )
+            aa_strings.append("".join(translate_aa[res.resname] for res in residues))
+
+        # helper: compute matrices for a given domain
+        def compute_matrices(domain: str):
+            if domain == "NTD":
+                # for NTD, stop at first insertion within first 10 ops
+                matrices = []
+                for ref in aa_strings:
+                    row = [self.levenshtein_dist_w_memory(ref, aa) for aa in aa_strings]
+                    matrices.append(row)
+                    # if any insertion ('I') in the first 10 ops of this alignment, break
+                    if any("I" in ops[-1][:10] for _, ops in row):
+                        break
+                return matrices
+
+            elif domain == "CTD":
+                # for CTD, align everything to the longest sequence
+                ref = max(aa_strings, key=len)
+                return [[self.levenshtein_dist_w_memory(ref, aa) for aa in aa_strings]]
+
+            else:
+                return []
+
+        # helper: pad chains based on matrices and domain
+        def pad_chains(matrices, domain: str):
+            for mtx_row, chain in zip(matrices, chains):
+                # boundary residue (first for NTD, last for CTD)
+                residues = sorted(
+                    Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
+                )
+                if not residues:
+                    continue
+
+                if domain == "NTD":
+                    boundary = residues[0]
+                    end_idx = boundary.get_id()[1]
+                    ops = np.array(list(mtx_row[-1][-1]), dtype="<U1")
+                    start_idx = end_idx - np.argmax(ops == "M")
+
+                    missing = range(start_idx, end_idx)
+
+                else:  # CTD
+                    boundary = residues[-1]
+                    start_idx = boundary.get_id()[1] + 1
+                    ops = np.array(list(mtx_row[-1][-1]), dtype="<U1")
+                    end_idx = start_idx + np.count_nonzero(ops == "D")
+
+                    missing = range(start_idx, end_idx)
+
+                # add dummy residues at each missing index
+                for idx in missing:
+                    new_res = boundary.copy()
+                    for atom in new_res:
+                        atom.detach_parent()
+                        atom.set_coord(np.array([9999, 9999, 9999], dtype="float32"))
+                    new_res.id = (" ", idx, chain.get_id())
+                    chain.add(new_res)
+
+        # pad NTD then CTD
+        pad_chains(compute_matrices("NTD"), "NTD")
+        pad_chains(compute_matrices("CTD"), "CTD")
