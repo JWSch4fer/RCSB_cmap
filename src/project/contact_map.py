@@ -39,7 +39,13 @@ TRANSLATE_AA = {
 class ContactMap:
     """Compute residue–residue contact maps from a Biopython Structure."""
 
-    def __init__(self, structure, cutoff: float = 8.0) -> None:
+    def __init__(
+        self,
+        structure,
+        chains_like: bool = False,
+        levenshtein_cutoff: int = 30,
+        cutoff: float = 8.0,
+    ) -> None:
         """
         Args:
             structure: Biopython Structure object.
@@ -51,6 +57,8 @@ class ContactMap:
         self.structure = structure
         self.cutoff = cutoff
         self._process_protein()
+        if chains_like:
+            self._only_keep_chains_like(chains_like, levenshtein_cutoff)
         self._check_length()
         # for chain in self.structure.get_chains():
         #     residues = sorted(
@@ -61,6 +69,34 @@ class ContactMap:
         self.all_coords, self.all_coords_res_ids, self.all_coords_int_ids = (
             self._extract_coordinates()
         )
+
+    def _only_keep_chains_like(self, selected_chain: str, levenshtein_cutoff: int):
+        # remove chains that are not related enough to the target sequence
+        chains = list(self.structure[0].get_chains())
+        ref = chains.index(
+            [chain for chain in chains if chain.full_id[-1] == selected_chain][0]
+        )
+
+        # build the AA string for each chain once
+        aa_strings = []
+        for chain in chains:
+            residues = sorted(
+                Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
+            )
+            aa_strings.append("".join(TRANSLATE_AA[res.resname] for res in residues))
+
+        # calculate the levenshtein_distance to decide which chains aren't related
+        leven_score = [levenshtein_distance(aa_strings[ref], aa) for aa in aa_strings]
+        detach_list = [
+            idx
+            for idx, score in enumerate(leven_score)
+            if score[0] > levenshtein_cutoff
+        ]
+
+        #detach chains
+        keys = list(self.structure[0].child_dict.keys())
+        for chain in detach_list:
+            self.structure[0].detach_child(keys[chain])
 
     def _process_protein(self) -> None:
         atom_number = 1
@@ -231,7 +267,7 @@ class ContactMap:
             offset += len(local_idxs)
         return tot_idx
 
-    def collapse_homo(self, cmap: np.ndarray, chains_like: bool) -> np.ndarray:
+    def collapse_homo(self, cmap: np.ndarray) -> np.ndarray:
         n_chains = len(list(self.structure[0].get_chains()))
         L = cmap.shape[0] // n_chains
         intra = sum(

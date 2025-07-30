@@ -69,7 +69,7 @@ def main() -> None:
 
     # take the raw protein information and clean it for visualization
     structure = client.parse_structure(raw, fmt, target_name)
-    cmap_obj = ContactMap(structure, cutoff=args.cutoff)
+    cmap_obj = ContactMap(structure, cutoff=args.cutoff, chains_like=args.chains_like, levenshtein_cutoff=args.levenshtein)
     cmap = cmap_obj.compute_residue_contact_map()
     mask = create_oligomer_mask(
         contact_map=cmap, chains_idx=cmap_obj.get_list_of_indicies()
@@ -77,7 +77,7 @@ def main() -> None:
     plot_contact_map(cmap, mask)
 
     if args.oligomer:
-        cmap_collapsed = cmap_obj.collapse_homo(cmap, chains_like=args.chains_like)
+        cmap_collapsed = cmap_obj.collapse_homo(cmap)
         plot_contact_map(cmap_collapsed)
 
     # TODO: integrate visualization module for saving CSV & figures
