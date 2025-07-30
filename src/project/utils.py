@@ -1,6 +1,7 @@
 ### src/project/utils.py
 import numpy as np
-from typing import Tuple, List
+from typing import Tuple, List, Sequence
+import itertools
 import matplotlib.pyplot as plt
 
 
@@ -46,27 +47,76 @@ def pad_with(vector: np.ndarray, pad_width: Tuple[int, int], iaxis: int, kwargs)
     vector[-pad_width[1] :] = pad_value
 
 
-def plot_contact_map(contact_map: np.ndarray) -> None:
+def plot_contact_map(contact_map: np.ndarray, mask: np.ndarray) -> None:
     """
     Display a residue–residue contact map.
 
     Args:
         contact_map: 2D binary NumPy array (shape: R×R).
     """
-    plt.figure(figsize=(8, 8))
+
+    f, ax = plt.subplots(1, 1, figsize=(9, 9))
+    axes = []
+
     # Render the contact map as an image
-    img = plt.imshow(
+    plt.imshow(
         contact_map,
         cmap="viridis",  # perceptually uniform colormap
         interpolation="none",  # no smoothing between cells
         origin="lower",  # put [0,0] in the bottom-left
     )
-    plt.colorbar(
-        img, label="Contact presence"
-    )  # show scale :contentReference[oaicite:2]{index=2}
+    if len(mask) > 0:
+        axes.append(ax.imshow(mask, cmap="Greys", interpolation="none", alpha=0.11))
     plt.xlabel("Residue index")
     plt.ylabel("Residue index")
     plt.title("Protein Contact Map")
     plt.tight_layout()
     plt.savefig("temp.png")
     plt.clf()
+
+
+def create_oligomer_mask(
+    contact_map: np.ndarray,
+    chains_idx: Sequence[Sequence[int]],
+    value_step: float = 0.2,
+) -> np.ndarray:
+    """
+    Build an inter‑chain mask for a homo‑oligomer contact map.
+
+    Args:
+        contact_map:        square (N×N) contact map array (modified in place).
+        chains_idx:         sequence of index lists, one per chain,
+                            where each list contains the flat indices for that chain.
+        value_step:         how much darker each successive inter‑chain block is.
+
+    Returns:
+        mask:               N×N float array with inter‑chain shading levels.
+                            Also mutates `contact_map`, marking any existing
+                            contacts in these regions with a value of 2.
+    """
+    n = contact_map.shape[0]
+    mask = np.zeros((n, n), dtype=float)
+
+    # for each unordered pair of chains (i < j)
+    for i, j in itertools.combinations(range(len(chains_idx)), 2):
+        rows = chains_idx[i]
+        cols = chains_idx[j]
+        level = 1.0 - (j - i) * value_step
+
+        # Shade the off‑diagonal block [rows, cols] and its transpose
+        mask[np.ix_(rows, cols)] = level
+        mask[np.ix_(cols, rows)] = level
+
+        # Wherever there was a contact (==1) in the original map, recolor to 2
+        block = contact_map[np.ix_(rows, cols)]
+        hits = block == 1
+        if np.any(hits):
+            # get the positions of those hits within the block
+            hit_rows, hit_cols = np.nonzero(hits)
+            # map back to global indices
+            global_rows = np.array(rows)[hit_rows]
+            global_cols = np.array(cols)[hit_cols]
+            contact_map[global_rows, global_cols] = 2
+            contact_map[global_cols, global_rows] = 2
+
+    return mask

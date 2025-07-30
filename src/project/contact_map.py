@@ -214,6 +214,23 @@ class ContactMap:
 
         return contact_map
 
+    def get_list_of_indicies(self):
+        # assume `chains` is an ordered dict or list of your chains’ CA‐atom lists
+        # coor_idx = [list(range(len(atom_list))) for atom_list in chains.values()]
+        coor_idx = []
+        chains = list(self.structure[0].get_chains())
+        for chain in chains:
+            residues = Selection.unfold_entities(chain, "R")
+            coor_idx.append([idx for idx, _ in enumerate(residues)])
+
+        tot_idx = []
+        offset = 0
+        for local_idxs in coor_idx:
+            global_idxs = [i + offset for i in local_idxs]
+            tot_idx.append(global_idxs)
+            offset += len(local_idxs)
+        return tot_idx
+
     def collapse_homo(self, cmap: np.ndarray, n_chains: int) -> np.ndarray:
         L = cmap.shape[0] // n_chains
         intra = sum(
