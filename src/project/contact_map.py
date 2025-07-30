@@ -52,11 +52,11 @@ class ContactMap:
         self.cutoff = cutoff
         self._process_protein()
         self._check_length()
-        for chain in self.structure.get_chains():
-            residues = sorted(
-                Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
-            )
-            print(len(residues))
+        # for chain in self.structure.get_chains():
+        #     residues = sorted(
+        #         Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
+        #     )
+        #     print(len(residues))
 
         self.all_coords, self.all_coords_res_ids, self.all_coords_int_ids = (
             self._extract_coordinates()
@@ -103,7 +103,11 @@ class ContactMap:
         detach_list = []
 
         for chain in self.structure[0].get_chains():
-            residues = list(Selection.unfold_entities(chain, "R"))
+            residues = sorted(
+                Selection.unfold_entities(chain, "R"),
+                key=lambda r: r.get_id()[1],
+            )
+
             if not residues:
                 detach_list.append(chain)
                 continue
@@ -115,7 +119,7 @@ class ContactMap:
                 prev_idx = prev_res.get_id()[1]
                 curr_idx = curr_res.get_id()[1]
                 if prev_idx + 1 != curr_idx:
-                    gap_list += list(range(prev_idx, curr_idx))
+                    gap_list += list(range(prev_idx + 1, curr_idx))
             self.fill_gap(
                 res_list=gap_list,
                 chain=chain,
@@ -241,8 +245,6 @@ class ContactMap:
                 Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
             )
             aa_strings.append("".join(TRANSLATE_AA[res.resname] for res in residues))
-        for a in aa_strings:
-            print(len(a))
 
         # # helper: compute matrices for a given domain
         def compute_matrices() -> Tuple[set, Tuple[int, List[str]]]:
@@ -255,86 +257,57 @@ class ContactMap:
                 matrices.append(row)
             return groups, matrices
 
-        #     if domain == "NTD":
-        #         # for NTD, stop at first insertion within first 10
-        #         matrices = []
-        #         for ref in aa_strings:
-        #             row = [levenshtein_distance(ref, aa) for aa in aa_strings]
-        #             matrices.append(row)
-        #             # if any insertion ('I') in the first 10 ops of this alignment, break
-        #             if any("I" in ops[-1][:10] for _, ops in row):
-        #                 break
-        #         return matrices
-
-        #     elif domain == "CTD":
-        #         # for CTD, align everything to the longest sequence
-        #         ref = max(aa_strings, key=len)
-        #         return [[levenshtein_distance(ref, aa) for aa in aa_strings]]
-
-        #     else:
-        #         return []
-
         # helper: pad chains based on matrices and domain
         def pad_chains(groups_matrices: Tuple[set, Tuple[int, List[str]]]):
             groups, matrices = groups_matrices
             for group in groups:
+                if len(group) < 2:
+                    continue
+
                 getter = operator.itemgetter(*group)
-                for mtx_row, chain in zip(getter(matrices), getter(chains)):
-                    # boundary residue (first for NTD, last for CTD)
+                getter_aa_strings = getter(aa_strings)
+                getter_matrices = getter(matrices)
+                getter_chains = getter(chains)
+
+                ref = aa_strings.index(max(getter_aa_strings, key=len))
+
+                for mtx_row, chain, aa_s, g in zip(
+                    getter_matrices, getter_chains, getter_aa_strings, group
+                ):
+                    # define reference as the longest chain in the group
+                    if g == ref:
+                        continue  # don't edit the ref
+
                     residues = sorted(
                         Selection.unfold_entities(chain, "R"),
                         key=lambda r: r.get_id()[1],
                     )
                     if not residues:
-                        continue
+                        continue  # skip empty chains
 
+                    # grad indices that need to be inserted
+                    idx_for_update = [
+                        idx for idx, L in enumerate(mtx_row[ref][1]) if L == "I"
+                    ]
 
-"""
-groups are a good idea to reduce useless computation
-still need to use longest in a group as reference
-This should be the only member of the group that has to be iterated fully
-"""
-                    gap_res = residues[0]
-                    missing = 
+                    if idx_for_update:
+                        ref_residues = sorted(
+                            Selection.unfold_entities(chains[ref], "R"),
+                            key=lambda r: r.get_id()[1],
+                        )
 
-                    print(mtx_row)
+                        # have to make sure to match indicies of chains
+                        if len(idx_for_update) == 1:
+                            get_resids = [
+                                ref_residues[idx_for_update[0]].full_id[-1][1]
+                            ]
+                        else:
+                            getter_resids = operator.itemgetter(*idx_for_update)
+                            get_resids = getter_resids(ref_residues)
+                            get_resids = [r.full_id[-1][1] for r in get_resids]
 
-                sys.exit(1)
-            for mtx_row, chain in zip(matrices, chains):
-                # boundary residue (first for NTD, last for CTD)
-                residues = sorted(
-                    Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
-                )
-                if not residues:
-                    continue
+                        self.fill_gap(
+                            res_list=get_resids, chain=chain, curr_res=ref_residues[0]
+                        )
 
-                if domain == "NTD":
-                    for leven_score, mem in mtx_row:
-                        if leven_score <= 30:
-                            boundary = residues[0]
-                            end_idx = boundary.get_id()[1]
-                            ops = np.array(list(mtx_row[-1][-1]), dtype="<U1")
-                            start_idx = end_idx - np.argmax(ops == "M")
-
-                            # print("ntd", mem)
-                            # print([idx for idx, L in enumerate(mem) if L == "D"])
-
-                    missing = list(range(start_idx, end_idx))
-
-                else:  # CTD
-                    for leven_score, mem in mtx_row:
-                        if leven_score <= 30:
-
-                            boundary = residues[-1]
-                            start_idx = boundary.get_id()[1] + 1
-                            ops = np.array(list(mtx_row[-1][-1]), dtype="<U1")
-                            end_idx = start_idx + np.count_nonzero(ops == "D")
-                            # print("ctd", mem)
-                            # print([idx for idx, L in enumerate(mem) if L == "I"])
-                    missing = list(range(start_idx, end_idx))
-
-                self.fill_gap(res_list=missing, chain=chain, curr_res=boundary)
-
-        # pad NTD then CTD
         pad_chains(compute_matrices())
-        # pad_chains(compute_matrices("CTD"), "CTD")
