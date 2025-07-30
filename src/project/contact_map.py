@@ -231,7 +231,8 @@ class ContactMap:
             offset += len(local_idxs)
         return tot_idx
 
-    def collapse_homo(self, cmap: np.ndarray, n_chains: int) -> np.ndarray:
+    def collapse_homo(self, cmap: np.ndarray, chains_like: bool) -> np.ndarray:
+        n_chains = len(list(self.structure[0].get_chains()))
         L = cmap.shape[0] // n_chains
         intra = sum(
             cmap[i * L : (i + 1) * L, i * L : (i + 1) * L] for i in range(n_chains)

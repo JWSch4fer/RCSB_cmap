@@ -53,7 +53,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+
+    # grab cli information
     args = parse_args()
+
+    # read information about protein from file or RCSB.org
     client = RCSBClient()
     pdb_input = Path(args.pdb)
     if pdb_input.is_file():
@@ -63,6 +67,7 @@ def main() -> None:
         raw, fmt = client.download_pdb(args.pdb, chain_id=args.chain)
         target_name = args.pdb
 
+    # take the raw protein information and clean it for visualization
     structure = client.parse_structure(raw, fmt, target_name)
     cmap_obj = ContactMap(structure, cutoff=args.cutoff)
     cmap = cmap_obj.compute_residue_contact_map()
@@ -72,14 +77,14 @@ def main() -> None:
     plot_contact_map(cmap, mask)
 
     if args.oligomer:
-        n_chains = len(structure[0].child_list)
-        cmap = cmap_obj.collapse_homo(cmap, n_chains)
+        cmap_collapsed = cmap_obj.collapse_homo(cmap, chains_like=args.chains_like)
+        plot_contact_map(cmap_collapsed)
 
     # TODO: integrate visualization module for saving CSV & figures
 
-    if args.compare:
-        # Repeat for comparison mode...
-        pass
+    # if args.compare:
+    #     # Repeat for comparison mode...
+    #     pass
 
 
 if __name__ == "__main__":

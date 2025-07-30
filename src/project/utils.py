@@ -1,6 +1,6 @@
 ### src/project/utils.py
 import numpy as np
-from typing import Tuple, List, Sequence
+from typing import Tuple, List, Sequence, Optional
 import itertools
 import matplotlib.pyplot as plt
 
@@ -47,7 +47,7 @@ def pad_with(vector: np.ndarray, pad_width: Tuple[int, int], iaxis: int, kwargs)
     vector[-pad_width[1] :] = pad_value
 
 
-def plot_contact_map(contact_map: np.ndarray, mask: np.ndarray) -> None:
+def plot_contact_map(contact_map: np.ndarray, mask: Optional[np.ndarray] = []) -> None:
     """
     Display a residue–residue contact map.
 
