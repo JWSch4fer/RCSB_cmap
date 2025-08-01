@@ -3,10 +3,11 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+import numpy as np
 
 from .rcsb import RCSBClient
 from .contact_map import ContactMap
-from .utils import plot_contact_map, create_oligomer_mask
+from .utils import plot_contact_map, create_oligomer_mask, create_contact_map_plot
 
 # Configure logging
 logging.basicConfig(
@@ -69,12 +70,24 @@ def main() -> None:
 
     # take the raw protein information and clean it for visualization
     structure = client.parse_structure(raw, fmt, target_name)
-    cmap_obj = ContactMap(structure, cutoff=args.cutoff, chains_like=args.chains_like, levenshtein_cutoff=args.levenshtein)
+    cmap_obj = ContactMap(
+        structure,
+        cutoff=args.cutoff,
+        chains_like=args.chains_like,
+        levenshtein_cutoff=args.levenshtein,
+    )
     cmap = cmap_obj.compute_residue_contact_map()
     mask = create_oligomer_mask(
         contact_map=cmap, chains_idx=cmap_obj.get_list_of_indicies()
     )
     plot_contact_map(cmap, mask)
+    create_contact_map_plot(
+        contact_map=cmap,
+        chain_labels=cmap_obj.get_list_of_chain_ids(),
+        chain_midpoints=[np.mean(idxs) for idxs in cmap_obj.get_list_of_indicies()],
+        mask=mask,
+        name=args.pdb,
+    )
 
     if args.oligomer:
         cmap_collapsed = cmap_obj.collapse_homo(cmap)

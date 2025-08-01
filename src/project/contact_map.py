@@ -93,7 +93,7 @@ class ContactMap:
             if score[0] > levenshtein_cutoff
         ]
 
-        #detach chains
+        # detach chains
         keys = list(self.structure[0].child_dict.keys())
         for chain in detach_list:
             self.structure[0].detach_child(keys[chain])
@@ -266,6 +266,9 @@ class ContactMap:
             tot_idx.append(global_idxs)
             offset += len(local_idxs)
         return tot_idx
+
+    def get_list_of_chain_ids(self):
+        return [chain.full_id[-1] for chain in self.structure[0].get_chains()]
 
     def collapse_homo(self, cmap: np.ndarray) -> np.ndarray:
         n_chains = len(list(self.structure[0].get_chains()))

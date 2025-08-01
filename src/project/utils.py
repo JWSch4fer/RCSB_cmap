@@ -1,5 +1,6 @@
 ### src/project/utils.py
 import numpy as np
+import pandas as pd
 from typing import Tuple, List, Sequence, Optional
 import itertools
 import matplotlib.pyplot as plt
@@ -73,6 +74,149 @@ def plot_contact_map(contact_map: np.ndarray, mask: Optional[np.ndarray] = []) -
     plt.tight_layout()
     plt.savefig("temp.png")
     plt.clf()
+
+
+def create_contact_map_plot(
+    contact_map: np.ndarray,
+    chain_labels: list[str],
+    chain_midpoints: list[int],
+    mask: Optional[np.ndarray] = [],
+    name: Optional[str] = "prot",
+) -> None:
+    """
+    Create pandas data frame of contact map for visualizing cmap
+    """
+
+    low = np.tril(contact_map)
+    low[np.triu_indices(low.shape[0])] = low.T[np.triu_indices(low.shape[0])]
+
+    up = np.triu(contact_map)
+    up[np.tril_indices(up.shape[0])] = up.T[np.tril_indices(up.shape[0])]
+
+    # low = overlap_definition(up, low, mtx_return=True)
+    # up = overlap_definition(low, up, mtx_return=True)
+    # colors = {'INTRA_COMMON':'#383838', 'INTRA_UNIQUE':'#ff63f8', 'INTER_COMMON':'#7b7b7b', 'INTER_UNIQUE':'#f9c6ff'}  #pink version
+    colors = {
+        "INTRA_COMMON": "#383838",
+        "INTRA_UNIQUE": "#377c2b",
+        "INTER_COMMON": "#7b7b7b",
+        "INTER_UNIQUE": "#b9dcb3",
+    }  # green version
+
+    # check for all contacts to find matches to ACE contacts
+    contact_types = {}
+    contact_types["low_true_intra"] = np.argwhere(
+        (np.tril(low) == 1) | (np.tril(low) == 3)
+    ).tolist()
+    contact_types["low_false_intra"] = np.argwhere(
+        (np.tril(low) == -1) | (np.tril(low) == -3)
+    ).tolist()
+    contact_types["low_true_inter"] = np.argwhere((np.tril(low) == 2)).tolist()
+    contact_types["low_false_inter"] = np.argwhere((np.tril(low) == -2)).tolist()
+    contact_types["up_true_intra"] = np.argwhere(
+        (np.triu(up) == 1) | (np.triu(up) == 3)
+    ).tolist()
+    contact_types["up_false_intra"] = np.argwhere(
+        (np.triu(up) == -1) | (np.triu(up) == -3)
+    ).tolist()
+    contact_types["up_true_inter"] = np.argwhere((np.triu(up) == 2)).tolist()
+    contact_types["up_false_inter"] = np.argwhere((np.triu(up) == -2)).tolist()
+
+    df = {"i": [], "j": [], "type": []}
+    for key in contact_types.keys():
+        for i, j in contact_types[key]:
+            if key == "low_true_intra":
+                df["i"].append(i)
+                df["j"].append(j)
+                df["type"].append("INTRA_COMMON")
+            if key == "low_false_intra":
+                df["i"].append(i)
+                df["j"].append(j)
+                df["type"].append("INTRA_UNIQUE")
+            if key == "low_true_inter":
+                df["i"].append(i)
+                df["j"].append(j)
+                df["type"].append("INTER_COMMON")
+            if key == "low_false_inter":
+                df["i"].append(i)
+                df["j"].append(j)
+                df["type"].append("INTER_UNIQUE")
+            if key == "up_true_intra":
+                df["i"].append(i)
+                df["j"].append(j)
+                df["type"].append("INTRA_COMMON")
+            if key == "up_false_intra":
+                df["i"].append(i)
+                df["j"].append(j)
+                df["type"].append("INTRA_UNIQUE")
+            if key == "up_true_inter":
+                df["i"].append(i)
+                df["j"].append(j)
+                df["type"].append("INTER_COMMON")
+            if key == "up_false_inter":
+                df["i"].append(i)
+                df["j"].append(j)
+                df["type"].append("INTER_UNIQUE")
+
+    df = pd.DataFrame.from_dict(df)
+
+    f, ax = plt.subplots(1, 1, figsize=(9, 9))
+    axes = []
+
+    # first, if you have a mask, draw it as a background in axes coords
+    if len(mask) > 0:
+        ax.imshow(
+            mask,
+            cmap="Greys",
+            interpolation="none",
+            alpha=0.11,
+            origin="lower",
+            zorder=0,  # behind your scatter
+            clip_on=False,  # ensure nothing clips it at the data border
+        )
+
+    # standardize size of markers no matter the size of the protein
+    r = 0.5  # radius of markers
+    r_ = (
+        ax.transData.transform([r, 0])[0] - ax.transData.transform([0, 0])[0]
+    )  # translate radius into image coords
+
+    # each 'type' needs its own handle for matplotlib to give unique legend elements
+    for t in df["type"].unique():
+        axes.append(
+            ax.scatter(
+                x=df.loc[df["type"].eq(t), "i"],
+                y=df.loc[df["type"].eq(t), "j"],
+                c=df.loc[df["type"].eq(t), "type"].map(colors),
+                s=np.pi * r_,
+                linewidth=0,
+                linestyle="None",
+            )
+        )
+
+    # ax.set_ylabel(y_name)
+    ax.set_xlabel(name.replace(".pdb", ""))
+    # chain names at midpoints
+    ax.set_yticks(chain_midpoints)
+    ax.set_yticklabels(chain_labels)
+
+    # Shrink current axis by 20%
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.85, box.height * 0.85])
+
+    # Put a legend to the right of the current axis
+    lgnd = ax.legend(df["type"].unique(), loc="center left", bbox_to_anchor=(1, 0.5))
+    for handle in lgnd.legend_handles:
+        handle.set_sizes([15.0])
+
+    # name = name.replace(re.search(r"(.cif|.pdb)", name).group(0), '') if bool(re.search(r"(.cif|.pdb)", name)) else name
+    # print("Writing csv...", f"{name}_df.csv")
+    # df.to_csv(f'{name}_df.csv')
+    print("Writing image...", "{:}.png".format(name.replace(".pdb", "")))
+    plt.savefig("{:}.png".format(name.replace(".pdb", "")))
+
+    plt.clf()
+    plt.close()
 
 
 def create_oligomer_mask(
