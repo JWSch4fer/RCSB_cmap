@@ -170,12 +170,13 @@ def create_contact_map_plot(
             interpolation="none",
             alpha=0.11,
             origin="lower",
-            zorder=0,  # behind your scatter
+            zorder=0,  # behind scatter
             clip_on=False,  # ensure nothing clips it at the data border
         )
 
-    #predefine limits for marker size calculations
-    ax.set_xlim(-0.5, contact_map.shape[0]+0.5); ax.set_ylim(-0.5, contact_map.shape[0]+0.5)
+    # predefine limits for marker size calculations
+    ax.set_xlim(-0.5, contact_map.shape[0] + 0.5)
+    ax.set_ylim(-0.5, contact_map.shape[0] + 0.5)
     # standardize size of markers no matter the size of the protein
     r_0 = cell_scatter_size(ax)  # radius of markers
 
@@ -214,12 +215,8 @@ def create_contact_map_plot(
     # df.to_csv(f'{name}_df.csv')
     print("Writing image...", "{:}.png".format(name.replace(".pdb", "")))
     plt.savefig("{:}.png".format(name.replace(".pdb", "")))
-
     plt.clf()
     plt.close()
-
-
-import numpy as np
 
 
 def cell_scatter_size(ax, frac=1.0, units_per_cell=1.0):
@@ -253,24 +250,19 @@ def cell_scatter_size(ax, frac=1.0, units_per_cell=1.0):
     fig = ax.figure
     dpi = fig.dpi
     fig_w_in, fig_h_in = fig.get_size_inches()
-    print("fig_in", fig_w_in, fig_h_in)
     pos = ax.get_position()  # axes bbox in figure-relative coords (0..1)
     ax_w_px = fig_w_in * pos.width * dpi
     ax_h_px = fig_h_in * pos.height * dpi
-    print("ax_px", ax_w_px, ax_h_px)
 
     # Data span (works even if axes are inverted)
     x0, x1 = ax.get_xlim()
     y0, y1 = ax.get_ylim()
-    print("xlims", x0, x1)
     span_x = abs(x1 - x0)
     span_y = abs(y1 - y0)
-    print("span", span_x, span_y)
 
     # Pixels per data unit along each axis
     px_per_unit_x = ax_w_px / span_x
     px_per_unit_y = ax_h_px / span_y
-    print(px_per_unit_x, px_per_unit_y)
 
     # One cell (units_per_cell wide/tall) in pixels; should always be a square for proteins...
     cell_px = min(px_per_unit_x, px_per_unit_y) * units_per_cell
