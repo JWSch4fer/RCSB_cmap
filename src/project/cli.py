@@ -91,7 +91,14 @@ def main() -> None:
 
     if args.oligomer:
         cmap_collapsed = cmap_obj.collapse_homo(cmap)
-        plot_contact_map(cmap_collapsed)
+        # plot_contact_map(cmap_collapsed)
+        create_contact_map_plot(
+            contact_map=cmap_collapsed,
+            chain_labels=cmap_obj.get_list_of_chain_ids(),
+            chain_midpoints=[np.mean(idxs) for idxs in cmap_obj.get_list_of_indicies()],
+            # mask=mask,
+            name=args.pdb+"-collapsed",
+        )
 
     # TODO: integrate visualization module for saving CSV & figures
 

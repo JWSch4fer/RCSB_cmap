@@ -95,7 +95,6 @@ def create_contact_map_plot(
 
     # low = overlap_definition(up, low, mtx_return=True)
     # up = overlap_definition(low, up, mtx_return=True)
-    # colors = {'INTRA_COMMON':'#383838', 'INTRA_UNIQUE':'#ff63f8', 'INTER_COMMON':'#7b7b7b', 'INTER_UNIQUE':'#f9c6ff'}  #pink version
     colors = {
         "INTRA_COMMON": "#383838",
         "INTRA_UNIQUE": "#377c2b",
@@ -160,7 +159,7 @@ def create_contact_map_plot(
 
     df = pd.DataFrame.from_dict(df)
 
-    f, ax = plt.subplots(1, 1, figsize=(9, 9))
+    f, ax = plt.subplots(1, 1, figsize=(9, 9), dpi=300)
     axes = []
 
     # first, if you have a mask, draw it as a background in axes coords
@@ -175,11 +174,10 @@ def create_contact_map_plot(
             clip_on=False,  # ensure nothing clips it at the data border
         )
 
+    #predefine limits for marker size calculations
+    ax.set_xlim(-0.5, contact_map.shape[0]+0.5); ax.set_ylim(-0.5, contact_map.shape[0]+0.5)
     # standardize size of markers no matter the size of the protein
-    r = 0.5  # radius of markers
-    r_ = (
-        ax.transData.transform([r, 0])[0] - ax.transData.transform([0, 0])[0]
-    )  # translate radius into image coords
+    r_0 = cell_scatter_size(ax)  # radius of markers
 
     # each 'type' needs its own handle for matplotlib to give unique legend elements
     for t in df["type"].unique():
@@ -188,7 +186,7 @@ def create_contact_map_plot(
                 x=df.loc[df["type"].eq(t), "i"],
                 y=df.loc[df["type"].eq(t), "j"],
                 c=df.loc[df["type"].eq(t), "type"].map(colors),
-                s=np.pi * r_,
+                s=r_0,
                 linewidth=0,
                 linestyle="None",
             )
@@ -196,9 +194,11 @@ def create_contact_map_plot(
 
     # ax.set_ylabel(y_name)
     ax.set_xlabel(name.replace(".pdb", ""))
-    # chain names at midpoints
-    ax.set_yticks(chain_midpoints)
-    ax.set_yticklabels(chain_labels)
+
+    if "collapse" not in name:
+        # chain names at midpoints
+        ax.set_yticks(chain_midpoints)
+        ax.set_yticklabels(chain_labels)
 
     # Shrink current axis by 20%
     box = ax.get_position()
@@ -217,6 +217,71 @@ def create_contact_map_plot(
 
     plt.clf()
     plt.close()
+
+
+import numpy as np
+
+
+def cell_scatter_size(ax, frac=1.0, units_per_cell=1.0):
+    """
+    Compute matplotlib.scatter(s=...) so a marker's DIAMETER is `frac` of one grid cell.
+    This standardizes the size of a point no matter the area of the image
+
+    NOTE:
+        1 point = 1/72 inch (the PostScript point that matplotlib uses).
+
+        inches = pixels / dpi
+        points = inches × 72
+
+        Combined: points = pixels * 72 / dpi
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes the scatter will be drawn on (must have correct xlim/ylim set).
+    frac : float in (0, 1]
+        Desired marker diameter as a fraction of one cell (e.g., 0.8 = 80% of a cell).
+    units_per_cell : float
+        Size of a cell in data units (1.0 for typical contact maps on integer grids).
+
+    Returns
+    -------
+    s : float
+        Area in points^2 to pass to scatter(..., s=s).
+    """
+    # axes pixel size
+    fig = ax.figure
+    dpi = fig.dpi
+    fig_w_in, fig_h_in = fig.get_size_inches()
+    print("fig_in", fig_w_in, fig_h_in)
+    pos = ax.get_position()  # axes bbox in figure-relative coords (0..1)
+    ax_w_px = fig_w_in * pos.width * dpi
+    ax_h_px = fig_h_in * pos.height * dpi
+    print("ax_px", ax_w_px, ax_h_px)
+
+    # Data span (works even if axes are inverted)
+    x0, x1 = ax.get_xlim()
+    y0, y1 = ax.get_ylim()
+    print("xlims", x0, x1)
+    span_x = abs(x1 - x0)
+    span_y = abs(y1 - y0)
+    print("span", span_x, span_y)
+
+    # Pixels per data unit along each axis
+    px_per_unit_x = ax_w_px / span_x
+    px_per_unit_y = ax_h_px / span_y
+    print(px_per_unit_x, px_per_unit_y)
+
+    # One cell (units_per_cell wide/tall) in pixels; should always be a square for proteins...
+    cell_px = min(px_per_unit_x, px_per_unit_y) * units_per_cell
+
+    # Desired marker diameter in pixels NOTE: 1 = entire cell
+    d_px = frac * cell_px
+
+    # Convert diameter in pixels -> points, then area (pt^2) for scatter's 's'
+    d_pt = d_px * 72.0 / dpi
+    s = np.pi * (d_pt / 2.0) ** 2
+    return max(s, 1e-6)  # guard against zero if something degenerate happens
 
 
 def create_oligomer_mask(
