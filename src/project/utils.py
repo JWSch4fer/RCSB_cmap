@@ -5,6 +5,8 @@ from typing import Tuple, List, Sequence, Optional
 import itertools
 import matplotlib.pyplot as plt
 
+from .overlap import comparison_info, overlap_definition
+
 
 def levenshtein_distance(s1: str, s2: str) -> Tuple[int, List[str]]:
     """
@@ -80,8 +82,9 @@ def create_contact_map_plot(
     contact_map: np.ndarray,
     chain_labels: list[str],
     chain_midpoints: list[int],
-    mask: Optional[np.ndarray] = [],
+    mask: Optional[np.ndarray] = np.ndarray([]),
     name: Optional[str] = "prot",
+    comp: Optional[comparison_info] = None,
 ) -> None:
     """
     Create pandas data frame of contact map for visualizing cmap
@@ -93,8 +96,8 @@ def create_contact_map_plot(
     up = np.triu(contact_map)
     up[np.tril_indices(up.shape[0])] = up.T[np.tril_indices(up.shape[0])]
 
-    # low = overlap_definition(up, low, mtx_return=True)
-    # up = overlap_definition(low, up, mtx_return=True)
+    low = overlap_definition(up, low, mtx_return=True)
+    up = overlap_definition(low, up, mtx_return=True)
     colors = {
         "INTRA_COMMON": "#383838",
         "INTRA_UNIQUE": "#377c2b",
@@ -163,7 +166,7 @@ def create_contact_map_plot(
     axes = []
 
     # first, if you have a mask, draw it as a background in axes coords
-    if len(mask) > 0:
+    if len(mask) > 0 and "collapse" not in name:
         ax.imshow(
             mask,
             cmap="Greys",
@@ -195,8 +198,11 @@ def create_contact_map_plot(
 
     # ax.set_ylabel(y_name)
     ax.set_xlabel(name.replace(".pdb", ""))
+    if comp:
+        ax.set_ylabel(comp.y_name.replace(".pdb", ""))
+        ax.set_xlabel(comp.x_name.replace(".pdb", ""))
 
-    if "collapse" not in name:
+    if "collapse" not in name and comp == None:
         # chain names at midpoints
         ax.set_yticks(chain_midpoints)
         ax.set_yticklabels(chain_labels)

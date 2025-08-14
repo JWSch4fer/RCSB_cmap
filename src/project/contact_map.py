@@ -57,9 +57,11 @@ class ContactMap:
         self.structure = structure
         self.cutoff = cutoff
         self._process_protein()
+        self._remove_empty_chains()
         if chains_like:
             self._only_keep_chains_like(chains_like, levenshtein_cutoff)
         self._check_length()
+
         # for chain in self.structure.get_chains():
         #     residues = sorted(
         #         Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
@@ -69,6 +71,19 @@ class ContactMap:
         self.all_coords, self.all_coords_res_ids, self.all_coords_int_ids = (
             self._extract_coordinates()
         )
+
+    def _remove_empty_chains(self):
+        """
+        some RCSB entries have empty chains
+        """
+        detach_list = []
+        for chain in self.structure[0].get_chains():
+            residues = Selection.unfold_entities(chain, "R")
+            if len(residues) == 0:
+                detach_list.append(chain)
+        if detach_list:
+            for chain in detach_list:
+                self.structure[0].detach_child(chain.id)
 
     def _only_keep_chains_like(self, selected_chain: str, levenshtein_cutoff: int):
         # remove chains that are not related enough to the target sequence
@@ -282,7 +297,8 @@ class ContactMap:
             for i, j in itertools.permutations(range(n_chains), 2)
         )
         intra = (intra > 0).astype(int)
-        inter = (inter > 0).astype(int) * 2
+        if n_chains > 1:
+            inter = (inter > 0).astype(int) * 2
         return intra + inter
 
     def _check_length(self):
@@ -335,16 +351,22 @@ class ContactMap:
                     if g == ref:
                         continue  # don't edit the ref
 
-                    residues = sorted(
-                        Selection.unfold_entities(chain, "R"),
-                        key=lambda r: r.get_id()[1],
-                    )
-                    if not residues:
-                        continue  # skip empty chains
+                    # residues = sorted(
+                    #     Selection.unfold_entities(chain, "R"),
+                    #     key=lambda r: r.get_id()[1],
+                    # )
+                    # if not residues:
+                    #     continue  # skip empty chains
 
                     # grad indices that need to be inserted
+
+                    # deletions from reference change indexing
+                    idx_deletion_offset = sum([1 for L in mtx_row[ref][1] if L == "D"])
+
                     idx_for_update = [
-                        idx for idx, L in enumerate(mtx_row[ref][1]) if L == "I"
+                        idx - idx_deletion_offset
+                        for idx, L in enumerate(mtx_row[ref][1])
+                        if L == "I"
                     ]
 
                     if idx_for_update:
