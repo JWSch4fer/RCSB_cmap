@@ -12,27 +12,37 @@ Key Features:
 ## Installation
 ```
 pip install -r requirements.txt
+pip install .
 
-bash test.sh
 ```
 
 ## Usage:
 ```
- -pdb ####      |  RCSB pdb id for the protein of interest (example: 1fha)
-                |  if ####.pdb(cif) is in cwd the local file will be used (example: 1fha.pdb)
- -chain #       |  Chain id of interest (example: A)
- -pdb2 ####     |  used to create a dualfold comparison contact map with -pdb
- -chain2 #      |  specify the chain of -pdb_2 that will be used for the comparison
- -oligomer      |  If -pdb is an oligomer this flag will create a superposition of of all contacts
- -chains_like # |  retain only chains that are similar to the selected chain. Useful for hetero-oligomer (example: C)
- -leven #       |
-```
+usage: rcsb_cmap [-h] -p PDB [-c CHAIN] [-p2 PDB2] [-c2 CHAIN2] [-o] [--cutoff CUTOFF] [--chains_like CHAINS_LIKE] [--levenshtein LEVENSHTEIN]
+
+Generate residue–residue contact maps from PDB/mmCIF structures.
+
+options:
+  -h, --help            show this help message and exit
+  -p PDB, --pdb PDB     PDB ID or local file path (.pdb or .cif)
+  -c CHAIN, --chain CHAIN
+                        Chain ID (e.g. A)
+  -p2 PDB2, --pdb2 PDB2
+                        PDB ID or local file path (.pdb or .cif)
+  -c2 CHAIN2, --chain2 CHAIN2
+                        Chain ID (e.g. A)
+  -o, --oligomer        Collapse homo‑oligomer contacts
+  --cutoff CUTOFF       Distance cutoff in Å for contacts
+  --chains_like CHAINS_LIKE
+                        retain only chains that are similar to the selected chain. Useful for hetero-oligomer (example: C)
+  --levenshtein LEVENSHTEIN
+                        chains_like calculates the levenshtein distance between chains and retains chains that are within 30 of the adjust if this is to restrictive/permissive```
 **NOTE**: chains_like calculates the levenshtein distance between chains and retains chains that are within 30 deletions/insertions/mutations
 
 ### Examples
 Full contact associated with RCSB ID 1A5M.
 ```
-python3 RCSB_cmap.py -pdb 1a5m
+rcsb_cmap -p 1a5m
 ```
 ![temporary text](/img/1a5m.png)
 
@@ -42,11 +52,11 @@ Use -chains_like flag to find all similar amino acid chains in a protein complex
 | All chains with sequences like chain C  | Collapsed version                 |
 | ------------------------------- | ----------------------------------------- |
 |![](/img/1a5m_chains_like_C.png) | ![](/img/1a5m_chains_like_C_collapse.png) |
-|```python3 RCSB_cmap.py -pdb 1a5m -chains_like C``` |```python3 RCSB_cmap.py -pdb 1a5m -chains_like C -oligomer ```|
+|```rcsb_cmap -p 1a5m --chains_like C``` |```rcsb_cmap -p 1a5m -chains_like C -o ```|
 
-Specify both -pdb and -pdb2 to create a dual-fold contact map to compare similar structures
+Specify both --pdb and --pdb2 to create a dual-fold contact map to compare similar structures
 ```
-python3 RCSB_cmap.py -pdb 1rep -oligomer -pdb2 2z9o
+rcsb_cmap -p 1rep -o -p2 2z9o
 ```
 ![](/img/comp_1rep_2z9o_collapse.png)
 
