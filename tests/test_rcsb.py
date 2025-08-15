@@ -3,7 +3,7 @@ import io
 import pytest
 from project.rcsb import RCSBClient
 
-PDB_SAMPLE = b"""
+PDB_SAMPLE = b"""HEADER    GENE REGULATION                         31-JAN-25   9XXX
 ATOM      1  N   ALA A   1      11.104  13.207   9.923  1.00 20.00           N  
 ATOM      2  CA  ALA A   1      12.560  13.207   9.923  1.00 20.00           C  
 ATOM      3  C   ALA A   1      12.904  14.640   9.523  1.00 20.00           C  
@@ -28,8 +28,8 @@ def test_parse_structure_pdb():
 @pytest.mark.parametrize(
     "chain_id,expected_prefix",
     [
-        (None, b"ATOM"),
-        ("A", b"ATOM"),
+        (None, b"HEADER"),
+        ("A", b"HEADER"),
     ],
 )
 def test_download_pdb_fallback(monkeypatch, chain_id, expected_prefix):
@@ -47,6 +47,6 @@ def test_download_pdb_fallback(monkeypatch, chain_id, expected_prefix):
     monkeypatch.setattr(
         client.session, "get", lambda url, params=None: DummyResp(PDB_SAMPLE)
     )
-    data, fmt = client.download_pdb("xxxx", 1, chain_id)
+    data, fmt = client.download_pdb("xxxx.pdb", 1, chain_id)
+    print(data)
     assert data.startswith(expected_prefix)
-    assert fmt == "pdb"

@@ -72,10 +72,6 @@ class ContactMap:
             self._extract_coordinates()
         )
 
-        print(self.all_coords)
-        print(self.all_coords_int_ids)
-        print(self.all_coords_res_ids)
-
     def _remove_empty_chains(self):
         """
         some RCSB entries have empty chains

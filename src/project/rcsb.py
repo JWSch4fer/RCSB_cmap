@@ -82,7 +82,6 @@ class RCSBClient:
             logging.info(f"PDB download successful for {pdb_id}")
             return response.content, "pdb"
 
-
     def parse_structure(self, raw: bytes, fmt: Optional[str], target: str):
         """
         Parse PDB/mmCIF from bytes. Robust to gzip regardless of `fmt`.
@@ -108,9 +107,7 @@ class RCSBClient:
         # allow leading whitespace/newlines (rare)
         first_nonempty = next((ln for ln in text.splitlines() if ln.strip()), "")
         looks_cif = first_nonempty.startswith("data_")
-        looks_pdb = first_nonempty.startswith(
-            ("HEADER", "ATOM", "HETATM", "REMARK", "MODEL", "CRYST1")
-        )
+        looks_pdb = first_nonempty.startswith(("HEADER"))
 
         # --- 3) Choose parser: prefer fmt hint, but fallback on sniffed content ---
         def _parse_cif(txt: str):
