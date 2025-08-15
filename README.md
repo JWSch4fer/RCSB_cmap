@@ -36,7 +36,8 @@ options:
   --chains_like CHAINS_LIKE
                         retain only chains that are similar to the selected chain. Useful for hetero-oligomer (example: C)
   --levenshtein LEVENSHTEIN
-                        chains_like calculates the levenshtein distance between chains and retains chains that are within 30 of the adjust if this is to restrictive/permissive```
+                        chains_like calculates the levenshtein distance between chains and retains chains that are within 30 of the adjust if this is to restrictive/permissive
+```
 **NOTE**: chains_like calculates the levenshtein distance between chains and retains chains that are within 30 deletions/insertions/mutations
 
 ### Examples
