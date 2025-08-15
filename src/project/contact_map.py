@@ -72,6 +72,10 @@ class ContactMap:
             self._extract_coordinates()
         )
 
+        print(self.all_coords)
+        print(self.all_coords_int_ids)
+        print(self.all_coords_res_ids)
+
     def _remove_empty_chains(self):
         """
         some RCSB entries have empty chains
@@ -285,8 +289,8 @@ class ContactMap:
     def get_list_of_chain_ids(self):
         return [chain.full_id[-1] for chain in self.structure[0].get_chains()]
 
-    def collapse_homo(self, cmap: np.ndarray) -> np.ndarray:
-        n_chains = len(list(self.structure[0].get_chains()))
+    def collapse_homo(self, cmap: np.ndarray, n_chains: int) -> np.ndarray:
+        # n_chains = len(list(self.structure[0].get_chains()))
         L = cmap.shape[0] // n_chains
         intra = sum(
             cmap[i * L : (i + 1) * L, i * L : (i + 1) * L] for i in range(n_chains)

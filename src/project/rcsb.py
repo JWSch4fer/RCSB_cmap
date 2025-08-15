@@ -82,29 +82,66 @@ class RCSBClient:
             logging.info(f"PDB download successful for {pdb_id}")
             return response.content, "pdb"
 
-    def parse_structure(self, data: bytes, fmt: str, target: str):
-        """
-        Parse raw PDB/mmCIF bytes into a Biopython Structure.
 
-        Args:
-            data: raw bytes or file-like object.
-            fmt: 'pdb' or 'cif'.
-            target: structure identifier.
-
-        Returns:
-            Biopython Structure object.
+    def parse_structure(self, raw: bytes, fmt: Optional[str], target: str):
         """
-        with tempfile.NamedTemporaryFile() as temp_file:
-            if fmt == "pdb":
-                parser = PDBParser(QUIET=True)
-                temp_file.write(data)
-                structure = parser.get_structure(target, temp_file.name)
-                return structure
-            if fmt == "cif":
-                parser = MMCIFParser(QUIET=True)
-                # create an in-memory stream to read the gzipped data
-                with gzip.open(io.BytesIO(data), "rb") as gz:
-                    gz_bytes = gz.read()  # .decode('utf-8')
-                temp_file.write(gz_bytes)
-                structure = parser.get_structure(target, temp_file.name)
-                return structure
+        Parse PDB/mmCIF from bytes. Robust to gzip regardless of `fmt`.
+        If `fmt` is wrong, we sniff and fallback.
+        """
+        if not isinstance(raw, (bytes, bytearray)):
+            raise TypeError("parse_structure expects raw bytes")
+
+        # --- 1) Decompress if gzipped (regardless of fmt hint) ---
+        if len(raw) >= 2 and raw[0] == 0x1F and raw[1] == 0x8B:  # gzip magic
+            raw = gzip.decompress(raw)
+
+        # normalize fmt hint
+        fmt_l = (fmt or "").lower().rstrip()
+        if fmt_l.endswith(".gz"):
+            fmt_l = fmt_l[:-3]
+        if fmt_l in ("cif",):
+            fmt_l = "mmcif"
+
+        # --- 2) Get a text handle ---
+        # mmCIF/PDB are ASCII; use utf-8 with strict to avoid injecting BOM-like chars.
+        text = raw.decode("utf-8", errors="strict")
+        # allow leading whitespace/newlines (rare)
+        first_nonempty = next((ln for ln in text.splitlines() if ln.strip()), "")
+        looks_cif = first_nonempty.startswith("data_")
+        looks_pdb = first_nonempty.startswith(
+            ("HEADER", "ATOM", "HETATM", "REMARK", "MODEL", "CRYST1")
+        )
+
+        # --- 3) Choose parser: prefer fmt hint, but fallback on sniffed content ---
+        def _parse_cif(txt: str):
+            handle = io.StringIO(txt)
+            parser = MMCIFParser(QUIET=True)
+            return parser.get_structure(target, handle)
+
+        def _parse_pdb(txt: str):
+            handle = io.StringIO(txt)
+            parser = PDBParser(QUIET=True)
+            return parser.get_structure(target, handle)
+
+        # Try in order: hinted fmt → sniffed fallback
+        if fmt_l == "mmcif":
+            try:
+                return _parse_cif(text)
+            except ValueError as e:
+                # common case: actually PDB text or truncated cif; try PDB
+                if looks_pdb:
+                    return _parse_pdb(text)
+                raise
+        elif fmt_l == "pdb":
+            try:
+                return _parse_pdb(text)
+            except Exception:
+                if looks_cif:
+                    return _parse_cif(text)
+                raise
+        else:
+            # No hint: use sniffed format
+            if looks_cif:
+                return _parse_cif(text)
+            # Default to PDB if we can't confidently identify mmCIF
+            return _parse_pdb(text)

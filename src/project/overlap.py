@@ -3,15 +3,6 @@ import numpy as np
 from dataclasses import dataclass
 
 
-def pad_with(vector, pad_width, iaxis, kwargs):
-    """
-    custom paramter to create a padded edge of a given value around an np.array using np.pad()
-    """
-    pad_value = kwargs.get("padder", 0)
-    vector[: pad_width[0]] = pad_value
-    vector[-pad_width[1] :] = pad_value
-
-
 def overlap_definition(A, B, mtx_return=False):
     # pad edges for sliding window consistency
     padded_A = np.pad(A, ((1, 1), (1, 1)), mode="constant", constant_values=0)
@@ -68,8 +59,9 @@ def compare_contact_maps(cmap1, cmap2, pdb1_name, pdb2_name) -> comparison_info:
         )
 
     # pad first matrix to allow for sliding window
-    n = int(B.shape[0] * 0.1)
-    B = np.pad(B, n, pad_with, padder=0)
+    n = max(1, int(np.ceil(B.shape[0] * 0.1)))
+    B = np.pad(B, ((n, n), (n, n)), mode="constant", constant_values=0)
+
     mask = np.triu(np.ones(B.shape))
     B = B * mask
 

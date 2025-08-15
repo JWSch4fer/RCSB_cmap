@@ -92,7 +92,9 @@ def main() -> None:
     )
 
     if args.oligomer:
-        cmap_collapsed = cmap_obj.collapse_homo(cmap)
+        cmap_collapsed = cmap_obj.collapse_homo(
+            cmap, len(cmap_obj.get_list_of_chain_ids())
+        )
         # plot_contact_map(cmap_collapsed)
         create_contact_map_plot(
             contact_map=cmap_collapsed,
@@ -153,21 +155,22 @@ def main() -> None:
         )
 
         if args.oligomer:
-            cmap_collapsed_2 = cmap_obj_2.collapse_homo(cmap_2)
+            cmap_collapsed_2 = cmap_obj_2.collapse_homo(
+                cmap_2, len(cmap_obj_2.get_list_of_chain_ids())
+            )
             create_contact_map_plot(
-            contact_map=cmap_collapsed_2,
-            chain_labels=cmap_obj_2.get_list_of_chain_ids(),
-            chain_midpoints=[
-                np.mean(idxs) for idxs in cmap_obj_2.get_list_of_indicies()
-            ],
-            mask=mask_2,
-            name=args.pdb2 + "-collapsed",
+                contact_map=cmap_collapsed_2,
+                chain_labels=cmap_obj_2.get_list_of_chain_ids(),
+                chain_midpoints=[
+                    np.mean(idxs) for idxs in cmap_obj_2.get_list_of_indicies()
+                ],
+                mask=mask_2,
+                name=args.pdb2 + "-collapsed",
             )
 
             comp_info_collapsed = compare_contact_maps(
                 cmap_collapsed, cmap_collapsed_2, args.pdb, args.pdb2
             )
-
 
             # plot_contact_map(cmap_collapsed)
             create_contact_map_plot(
