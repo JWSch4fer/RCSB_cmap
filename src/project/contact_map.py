@@ -4,12 +4,11 @@ from sklearn.neighbors import radius_neighbors_graph
 from sklearn.preprocessing import LabelBinarizer
 from scipy.sparse import csr_matrix
 import itertools, operator
-from typing import Tuple, Optional, List
+from typing import Tuple, List
 
 from Bio.PDB import Selection
 from scipy.spatial import distance_matrix
-from .utils import levenshtein_distance, plot_contact_map
-import sys
+from .utils import levenshtein_distance
 
 
 TRANSLATE_AA = {

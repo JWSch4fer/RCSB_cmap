@@ -50,33 +50,6 @@ def pad_with(vector: np.ndarray, pad_width: Tuple[int, int], iaxis: int, kwargs)
     vector[-pad_width[1] :] = pad_value
 
 
-def plot_contact_map(contact_map: np.ndarray, mask: Optional[np.ndarray] = []) -> None:
-    """
-    Display a residue–residue contact map.
-
-    Args:
-        contact_map: 2D binary NumPy array (shape: R×R).
-    """
-
-    f, ax = plt.subplots(1, 1, figsize=(9, 9))
-    axes = []
-
-    # Render the contact map as an image
-    plt.imshow(
-        contact_map,
-        cmap="viridis",  # perceptually uniform colormap
-        interpolation="none",  # no smoothing between cells
-        origin="lower",  # put [0,0] in the bottom-left
-    )
-    if len(mask) > 0:
-        axes.append(ax.imshow(mask, cmap="Greys", interpolation="none", alpha=0.11))
-    plt.xlabel("Residue index")
-    plt.ylabel("Residue index")
-    plt.title("Protein Contact Map")
-    plt.tight_layout()
-    plt.savefig("temp.png")
-    plt.clf()
-
 
 def create_contact_map_plot(
     contact_map: np.ndarray,

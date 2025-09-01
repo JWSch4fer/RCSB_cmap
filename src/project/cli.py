@@ -8,7 +8,7 @@ import numpy as np
 
 from .rcsb import RCSBClient
 from .contact_map import ContactMap
-from .utils import plot_contact_map, create_oligomer_mask, create_contact_map_plot
+from .utils import create_oligomer_mask, create_contact_map_plot
 from .overlap import compare_contact_maps
 
 # Configure logging
@@ -82,7 +82,6 @@ def main() -> None:
     mask = create_oligomer_mask(
         contact_map=cmap, chains_idx=cmap_obj.get_list_of_indicies()
     )
-    # plot_contact_map(cmap, mask)
     create_contact_map_plot(
         contact_map=cmap,
         chain_labels=cmap_obj.get_list_of_chain_ids(),
@@ -95,7 +94,6 @@ def main() -> None:
         cmap_collapsed = cmap_obj.collapse_homo(
             cmap, len(cmap_obj.get_list_of_chain_ids())
         )
-        # plot_contact_map(cmap_collapsed)
         create_contact_map_plot(
             contact_map=cmap_collapsed,
             chain_labels=cmap_obj.get_list_of_chain_ids(),
@@ -172,7 +170,6 @@ def main() -> None:
                 cmap_collapsed, cmap_collapsed_2, args.pdb, args.pdb2
             )
 
-            # plot_contact_map(cmap_collapsed)
             create_contact_map_plot(
                 contact_map=comp_info_collapsed.cmap_comp,
                 chain_labels=cmap_obj.get_list_of_chain_ids(),
