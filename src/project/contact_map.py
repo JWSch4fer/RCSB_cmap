@@ -41,6 +41,7 @@ class ContactMap:
     def __init__(
         self,
         structure,
+        target_chain: Optional[str] = None,
         chains_like: bool = False,
         levenshtein_cutoff: int = 30,
         cutoff: float = 8.0,
@@ -61,11 +62,19 @@ class ContactMap:
             self._only_keep_chains_like(chains_like, levenshtein_cutoff)
         self._check_length()
 
-        # for chain in self.structure.get_chains():
-        #     residues = sorted(
-        #         Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
-        #     )
-        #     print(len(residues))
+        # in case RCSB cli ignores chain information we'll manually remove them
+        # _____________________________________________________________________
+        if target_chain:
+            chains_to_remove = []
+            for chain in self.structure.get_chains():
+                # residues = sorted(
+                #     Selection.unfold_entities(chain, "R"), key=lambda r: r.get_id()[1]
+                # )
+                if chain._id != target_chain:
+                    chains_to_remove.append(chain._id)
+            for chain in chains_to_remove:
+                self.structure[0].detach_child(chain)
+        # _____________________________________________________________________
 
         self.all_coords, self.all_coords_res_ids, self.all_coords_int_ids = (
             self._extract_coordinates()

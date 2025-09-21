@@ -74,6 +74,7 @@ def main() -> None:
     structure = client.parse_structure(raw, fmt, target_name)
     cmap_obj = ContactMap(
         structure,
+        target_chain=args.chain,
         cutoff=args.cutoff,
         chains_like=args.chains_like,
         levenshtein_cutoff=args.levenshtein,
@@ -118,6 +119,7 @@ def main() -> None:
         structure_2 = client_2.parse_structure(raw_2, fmt_2, target_name_2)
         cmap_obj_2 = ContactMap(
             structure_2,
+            target_chain=args.chain2,
             cutoff=args.cutoff,
             chains_like=args.chains_like,
             levenshtein_cutoff=args.levenshtein,
