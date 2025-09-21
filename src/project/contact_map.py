@@ -4,7 +4,7 @@ from sklearn.neighbors import radius_neighbors_graph
 from sklearn.preprocessing import LabelBinarizer
 from scipy.sparse import csr_matrix
 import itertools, operator
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 from Bio.PDB import Selection
 from scipy.spatial import distance_matrix
